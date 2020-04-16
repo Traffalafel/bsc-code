@@ -15,7 +15,7 @@ trait Repository {
   // todo: Grain key validation
   @combinator object main {
     def apply(read: Python, write: Python) = Python(
-      s"""class GrainFileStorage:
+      s"""class GrainFileStorage():
          |${read.indent.getCode}
          |${write.indent.getCode}
          |""".stripMargin)
@@ -24,7 +24,7 @@ trait Repository {
 
   @combinator object read1 {
     def apply() = Python(
-      s"""def read(filename):
+      s"""def read(self, filename):
          |    import os
          |    try:
          |        file = os.open(filename, os.O_RDONLY)
@@ -32,7 +32,7 @@ trait Repository {
          |        file_bytes = os.read(file, file_length)
          |        os.close(file)
          |        return file_bytes.decode('utf-8')
-         |     except e:
+         |    except:
          |        return ''
          |""".stripMargin)
     val semanticType: Type = 'Read
@@ -40,13 +40,13 @@ trait Repository {
 
   @combinator object read2 {
     def apply() = Python(
-      s"""def read(filename):
+      s"""def read(self, filename):
          |    try:
          |        file = open(filename, 'r+')
          |        content = file.read()
          |        file.close()
          |        return content
-         |    except e:
+         |    except:
          |        return ''
          |""".stripMargin)
     val semanticType: Type = 'Read
@@ -54,12 +54,13 @@ trait Repository {
 
   @combinator object write1 {
     def apply() = Python(
-      s"""def write(filename, value)
+      s"""def write(self, filename, value):
+         |    import os
          |    try:
-         |        file = os.open(filename, os.O_WRONLY)
+         |        file = os.open(filename, os.O_WRONLY|os.O_CREAT)
          |        os.write(file, value)
          |        os.close(file)
-         |    except e:
+         |    except:
          |        return
          |""".stripMargin
     )
@@ -68,12 +69,12 @@ trait Repository {
 
   @combinator object write2 {
     def apply() = Python(
-      s"""def write(filename, value):
+      s"""def write(self, filename, value):
          |    try:
          |        file = open(filename, 'w+')
          |        file.write(value)
          |        file.close()
-         |    except e:
+         |    except:
          |        return
          |""".stripMargin
     )
