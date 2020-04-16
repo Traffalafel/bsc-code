@@ -1,11 +1,8 @@
 package fileStorage
 
-import com.github.javaparser.ast.CompilationUnit
-import com.github.javaparser.ast.`type`.{Type => JType}
-import com.github.javaparser.ast.expr.Expression
 import org.combinators.cls.interpreter.combinator
 import org.combinators.cls.types.syntax._
-import org.combinators.templating.twirl.{Java, Python}
+import org.combinators.templating.twirl.Python
 import org.combinators.cls.types.Type
 
 trait Repository {
@@ -25,7 +22,7 @@ trait Repository {
     val semanticType: Type = 'Read =>: 'Write =>: 'FileStorage
   }
 
-  @combinator object readFile1 {
+  @combinator object read1 {
     def apply() = Python(
       s"""def read(filename):
          |    import os
@@ -41,7 +38,7 @@ trait Repository {
     val semanticType: Type = 'Read
   }
 
-  @combinator object readFile2 {
+  @combinator object read2 {
     def apply() = Python(
       s"""def read(filename):
          |    try:
@@ -55,13 +52,13 @@ trait Repository {
     val semanticType: Type = 'Read
   }
 
-  @combinator object write_os {
+  @combinator object write1 {
     def apply() = Python(
-      s"""def write(filename, value):
+      s"""def write(filename, value)
          |    try:
-         |        file = open(filename, 'w+')
-         |        file.write(value)
-         |        file.close()
+         |        file = os.open(filename, os.O_WRONLY)
+         |        os.write(file, value)
+         |        os.close(file)
          |    except e:
          |        return
          |""".stripMargin
@@ -71,11 +68,11 @@ trait Repository {
 
   @combinator object write2 {
     def apply() = Python(
-      s"""def write(filename, value)
+      s"""def write(filename, value):
          |    try:
-         |        file = os.open(filename, os.O_WRONLY)
-         |        os.write(file, value)
-         |        os.close(file)
+         |        file = open(filename, 'w+')
+         |        file.write(value)
+         |        file.close()
          |    except e:
          |        return
          |""".stripMargin
