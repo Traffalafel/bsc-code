@@ -26,14 +26,11 @@ trait Repository {
     def apply() = Python(
       s"""def read(self, filename):
          |    import os
-         |    try:
-         |        file = os.open(filename, os.O_RDONLY)
-         |        file_length = os.stat(file).st_size
-         |        file_bytes = os.read(file, file_length)
-         |        os.close(file)
-         |        return file_bytes.decode('utf-8')
-         |    except:
-         |        return ''
+         |    file = os.open(filename, os.O_RDONLY)
+         |    file_length = os.stat(file).st_size
+         |    file_bytes = os.read(file, file_length)
+         |    os.close(file)
+         |    return file_bytes.decode('utf-8')
          |""".stripMargin)
     val semanticType: Type = 'Read
   }
@@ -41,13 +38,10 @@ trait Repository {
   @combinator object read2 {
     def apply() = Python(
       s"""def read(self, filename):
-         |    try:
-         |        file = open(filename, 'r+')
-         |        content = file.read()
-         |        file.close()
-         |        return content
-         |    except:
-         |        return ''
+         |    file = open(filename, 'r+')
+         |    content = file.read()
+         |    file.close()
+         |    return content
          |""".stripMargin)
     val semanticType: Type = 'Read
   }
@@ -56,12 +50,11 @@ trait Repository {
     def apply() = Python(
       s"""def write(self, filename, value):
          |    import os
-         |    try:
-         |        file = os.open(filename, os.O_WRONLY|os.O_CREAT)
-         |        os.write(file, value)
-         |        os.close(file)
-         |    except:
-         |        return
+         |    fd = os.open(filename, os.O_WRONLY|os.O_CREAT|os.O_TRUNC)
+         |    file = os.fdopen(fd, 'w+')
+         |    chars_written = file.write(value)
+         |    file.close()
+         |    return chars_written
          |""".stripMargin
     )
     val semanticType: Type = 'Write
@@ -70,12 +63,10 @@ trait Repository {
   @combinator object write2 {
     def apply() = Python(
       s"""def write(self, filename, value):
-         |    try:
-         |        file = open(filename, 'w+')
-         |        file.write(value)
-         |        file.close()
-         |    except:
-         |        return
+         |    file = open(filename, 'w+')
+         |    chars_written = file.write(value)
+         |    file.close()
+         |    return chars_written
          |""".stripMargin
     )
     val semanticType: Type = 'Write

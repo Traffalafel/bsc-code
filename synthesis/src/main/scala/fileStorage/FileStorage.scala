@@ -29,9 +29,7 @@ object FileStorage {
 
     // Ensure the inhabitants output directory exists
     val create_output_dir = new File(output_dir).mkdirs()
-    if (create_output_dir) {
-      new File(s"$output_dir/__init__.py").createNewFile()
-    } // Output dir is Python package
+    new File(s"$output_dir/__init__.py").createNewFile()
 
     var count: Int = 0
     expressions.foreach(exp => {
