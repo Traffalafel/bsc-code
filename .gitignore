@@ -1,2 +1,5 @@
 .vscode
-inhabitants
+__pycache__
+components
+components_broken
+data

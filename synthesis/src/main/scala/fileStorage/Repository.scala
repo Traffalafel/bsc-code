@@ -15,7 +15,7 @@ trait Repository {
   // todo: Grain key validation
   @combinator object main {
     def apply(read: Python, write: Python) = Python(
-      s"""class GrainFileStorage():
+      s"""class Component():
          |${read.indent.getCode}
          |${write.indent.getCode}
          |""".stripMargin)
@@ -38,7 +38,7 @@ trait Repository {
   @combinator object read2 {
     def apply() = Python(
       s"""def read(self, filename):
-         |    file = open(filename, 'r+')
+         |    file = open(filename, 'r+', encoding='utf-8')
          |    content = file.read()
          |    file.close()
          |    return content
@@ -51,7 +51,7 @@ trait Repository {
       s"""def write(self, filename, value):
          |    import os
          |    fd = os.open(filename, os.O_WRONLY|os.O_CREAT|os.O_TRUNC)
-         |    file = os.fdopen(fd, 'w+')
+         |    file = os.fdopen(fd, 'w+', encoding='utf-8')
          |    chars_written = file.write(value)
          |    file.close()
          |    return chars_written
@@ -63,7 +63,7 @@ trait Repository {
   @combinator object write2 {
     def apply() = Python(
       s"""def write(self, filename, value):
-         |    file = open(filename, 'w+')
+         |    file = open(filename, 'w+', encoding='utf-8')
          |    chars_written = file.write(value)
          |    file.close()
          |    return chars_written

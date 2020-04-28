@@ -34,7 +34,7 @@ object FileStorage {
     var count: Int = 0
     expressions.foreach(exp => {
       count += 1
-      save_inhabitant(s"$output_dir/inhabitant_$count.py", exp)
+      save_inhabitant(s"$output_dir/component_$count.py", exp)
     })
 
   }
