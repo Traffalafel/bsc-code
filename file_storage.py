@@ -2,10 +2,15 @@ import importlib
 import pkgutil
 import sys
 
+import tracemalloc
+import gc
+
+
 class NVPStrategy():
 
 	def __init__(self, silent=True):
 		self.silent = silent
+		tracemalloc.start()
 
 	def read(self, components, filename):
 		values = []
@@ -30,12 +35,22 @@ class NVPStrategy():
 	def write(self, components, filename, value):
 		lengths = []
 		for idx, component in enumerate(components):
+			
+			# # [Measure memory]
+			# before = tracemalloc.take_snapshot()
+
 			try:
 				length = component.write(filename, value)
 				lengths.append((component, length))
 			except Exception as e:
 				if not self.silent:
 					print("Component %i failed writing\n%s" % (idx+1, e))
+			
+			# # [Measure memory]
+			# after = tracemalloc.take_snapshot()
+			# diff = after.compare_to(before, 'filename')
+		
+		# Find correct output
 		lengths_freq = dict()
 		for _, length in lengths:
 			lengths_freq[length] = lengths_freq.get(length, 0) + 1
@@ -57,19 +72,6 @@ class RBStrategy():
 
 	def write(self, components, filename, value):
 		pass
-
-def load_components(package_name, silent=True):
-	components = []
-	for component in pkgutil.iter_modules([package_name]):
-		try:
-			component_module = importlib.import_module(".%s" % component.name, package_name)
-			components.append(component_module.Component())
-			if not silent:
-				print("Successfully imported component %s" % component.name)
-		except Exception as e:
-			if not silent:
-				print("Failed to import component '%s'\n%s" % (component.name, e))
-	return components
 
 
 class Baseline():

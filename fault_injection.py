@@ -71,21 +71,7 @@ class FaultInjector():
 	def log_fault(self):
 		pass
 
-	def inject_faults(self, source: str):
+	def inject(self, source: str):
 		mutation = random.choice(self.mutations)
 		return mutation(source)
-
-def main(*args):
-	s = """
-def hejsa():
-    hva så
-    ikk så meget
-class dinmor():
-	def __init__(self):
-		self.dinmor = 'ost' """
-	print(s)
-	print(find_commands(s))
-	print(swap_lines(s, 0, 1))
-
-if __name__ == "__main__":
-		main(sys.argv)
+		
