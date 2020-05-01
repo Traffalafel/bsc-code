@@ -4,23 +4,29 @@ import sys
 
 import tracemalloc
 import gc
+import inspect
+import trace
 
+def member_names(members):
+	for name, obj in members:
+		print(name)
 
 class NVPStrategy():
 
 	def __init__(self, silent=True):
 		self.silent = silent
-		tracemalloc.start()
 
 	def read(self, components, filename):
 		values = []
 		for idx, component in enumerate(components):
+
 			try:
 				value = component.read(filename)
 				values.append(value)
 			except Exception as e:
 				if not self.silent:
 					print("Component %i failed reading\n%s" % (idx+1, e))
+		
 		# Get the most frequent value
 		values_freq = dict()
 		for value in values:
