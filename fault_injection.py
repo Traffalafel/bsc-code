@@ -58,10 +58,20 @@ def swap_commands(source: str):
 		_, line_num_2 = random_line(source)
 	return swap_lines(source, line_num_1, line_num_2)
 
+def remove_command(source: str):
+	_, line_num = random_line(source)
+	lines = source.split("\n")
+	new_lines = lines[:line_num] + lines[line_num+1:]
+	return "\n".join(new_lines)
+
+def remove_char(source: str):
+	char_idx = random.randint(0, len(source)-1)
+	return source[:char_idx] + source[char_idx+1:]
+
 class FaultInjector():
 
 	def __init__(self):
-		self.mutations = [insert_char, swap_commands]
+		self.mutations = [insert_char, swap_commands, remove_command, remove_char]
 
 	# Regenerate the fault that is going to be injected
 	def regenerate(self):

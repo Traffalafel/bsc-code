@@ -116,8 +116,13 @@ def main(args):
 		return
 
 	fi = FaultInjector()
-	failures = [[],[]]
 	seed = generate_seed()
+	
+	nvp_strat = NVPStrategy(silent=True)
+	nvp = FileStorage(nvp_strat, [], "./data/nvp")
+	bl = Baseline(None, "./data/bl")
+	targets = [nvp, bl]
+	failures = [[] for _ in targets]
 
 	for idx in range(num_experiments):
 
@@ -126,15 +131,11 @@ def main(args):
 		clear_directory("./data/nvp")
 		clear_directory("./data/bl")
 
-		# Break components
+		# Create new broken components
 		break_components('components', 'components_broken', fi)
-		# Create file storage from broken components
 		components = load_components("components_broken", silent=True)
-
-		nvp_strat = NVPStrategy(silent=True)
-		nvp = FileStorage(nvp_strat, components, "./data/nvp")
-		bl = Baseline(components[0], "./data/bl")
-		targets = [nvp, bl]
+		nvp.set_components(components)
+		bl.set_component(components[0])
 		
 		wg = WorkloadGenerator(workload_size, seed=seed)
 

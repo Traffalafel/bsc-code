@@ -79,13 +79,16 @@ class RBStrategy():
 class Baseline():
 
 	def __init__(self, component, data_dir):
-		self.component = component
+		self.__component = component
 		self.data_dir = data_dir
+
+	def set_component(self, component):
+		self.__component = component
 
 	def read(self, filename):
 		path = os.path.join(self.data_dir, filename)
 		try:
-			result = self.component.read(path)
+			result = self.__component.read(path)
 			return result
 		except:
 			return None
@@ -93,7 +96,7 @@ class Baseline():
 	def write(self, filename, value):
 		path = os.path.join(self.data_dir, filename)
 		try:
-			self.component.write(path, value)
+			self.__component.write(path, value)
 		except:
 			return None
 
@@ -101,14 +104,17 @@ class Baseline():
 class FileStorage():
 
 	def __init__(self, ft_strategy, components, data_dir):
-		self.components = components
+		self.__components = components
 		self.data_dir = data_dir
 		self.ft_strategy = ft_strategy
 
+	def set_components(self, components):
+		self.__components = components
+
 	def read(self, filename):
 		path = os.path.join(self.data_dir, filename)
-		return self.ft_strategy.read(self.components, path)
+		return self.ft_strategy.read(self.__components, path)
 
 	def write(self, filename, value):
 		path = os.path.join(self.data_dir, filename)
-		return self.ft_strategy.write(self.components, path, value)
+		return self.ft_strategy.write(self.__components, path, value)
