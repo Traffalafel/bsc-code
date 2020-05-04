@@ -1,54 +1,66 @@
 import random
 import string
+import sys
 
 # TODO: turn into a Python generator object
 
 class WorkloadGenerator():
 
-	def __init__(self, directory):
-		self.directory = directory
+	def __init__(self, workload_size, seed):
+		self.size = workload_size
 		self.state = dict()
+		self.seed = seed
+		self.reset()
+
+	def reset(self,):
+		self.count = 0
+		self.random = random.Random(self.seed)
 
 	def gen_new_value(self):
 		possible_chars = list(string.ascii_letters)
 		possible_chars += list(string.digits)
 		output = ""
-		length = random.randint(1, 10)
+		length = self.random.randint(1, 10)
 		for _ in range(length):
-			output += random.choice(possible_chars)
+			output += self.random.choice(possible_chars)
 		return output
 
 	def get_existing_id(self):
-		return random.choice(list(self.state.keys()))
+		return self.random.choice(list(self.state.keys()))
 
 	def gen_new_id(self):
 		possible_chars = list(string.ascii_letters)
 		possible_chars += list(string.digits)
 		output = ""
-		length = random.randint(1, 10)
+		length = self.random.randint(1, 10)
 		for _ in range(length):
-			output += random.choice(possible_chars)
+			output += self.random.choice(possible_chars)
 		return output
 
 	def gen_write(self, grain_id, grain_val):
-		path = "%s/%s" % (self.directory, grain_id)
 		def write(file_storage):
-			return file_storage.write(path, grain_val)
+			return file_storage.write(grain_id, grain_val)
 		return write
 
 	def gen_read(self, grain_id):
-		path = "%s/%s" % (self.directory, grain_id)
 		def read(file_storage):
-			return file_storage.read(path)
+			return file_storage.read(grain_id)
 		return read
 
+	def __iter__(self):
+		return self
+
 	# Returns (input, true_result)
-	def next(self):
+	def __next__(self):
+
+		self.count += 1
+		if self.count == self.size:
+			raise StopIteration()
 
 		if len(self.state.keys()) == 0:
 			rnd = 0
 		else:
-			rnd = random.randint(0, 2)
+			rnd = self.random.randint(0, 2)
 
 		# Write to new grain
 		if rnd == 0:

@@ -3,15 +3,13 @@ import shutil
 import sys
 from fault_injection import FaultInjector
 from workload_generator import WorkloadGenerator
-from file_storage import FileStorage, NVPStrategy
+from file_storage import FileStorage, NVPStrategy, Baseline
 import importlib
 import pkgutil
-import psutil
+
 import py_compile
 from multiprocessing import Process, Queue
 import matplotlib.pyplot as plt
-
-import trace
 
 def load_components(package_name, silent=True):
 	components = []
@@ -74,14 +72,16 @@ def break_components(input_dir, output_dir, fault_injector):
 		components_src[idx] = fault_injector.inject(components_src[idx])
 	return save_package_src(components_src, output_dir)
 
-def run_experiment(target, workload_size, workload_generator, out_queue):
+def run_experiment(target, workload_generator, out_queue):
 	failure_count = 0
-	for _ in range(workload_size):
-		command, true_result = workload_generator.next()
+	for command, true_result in workload_generator:
 		result = command(target)
 		if result != true_result:
 			failure_count += 1
 	out_queue.put(failure_count)
+
+def experiment(targets, workload_generator):
+	pass
 
 def barplot_bins(failures, remove_outliers=True):
 	freqs = dict()
@@ -89,15 +89,14 @@ def barplot_bins(failures, remove_outliers=True):
 		freqs[f] = freqs.get(f, 0) + 1
 	keys = list(freqs.keys())
 	vals = list(freqs.values())
-	print("Keys with outliers: ", keys)
-	print("Values with outliers: ", vals)
-	indices = list(range(len(keys)))
-	indices.remove(keys.index(min(keys)))
-	indices.remove(keys.index(max(keys)))
-	if remove_outliers:
-		return [keys[i] for i in indices], [vals[i] for i in indices]
-	else:
-		return keys, vals
+	return keys, vals
+	# indices = list(range(len(keys)))
+	# indices.remove(keys.index(min(keys)))
+	# indices.remove(keys.index(max(keys)))
+	# if remove_outliers:
+	# 	return [keys[i] for i in indices], [vals[i] for i in indices]
+	# else:
+	# 	return keys, vals
 
 def main(args):
 
@@ -117,45 +116,45 @@ def main(args):
 		return
 
 	fi = FaultInjector()
-	failures = []
+	failures = [[],[]]
+	seed = 420
 
 	for idx in range(num_experiments):
 
-		print("Experiment no. %d" % idx)
+		print("Experiment no. %d" % (idx+1))
 
-		clear_directory("./data")
-		wg = WorkloadGenerator("./data")
+		clear_directory("./data/nvp")
+		clear_directory("./data/bl")
+
 
 		# Break components
 		break_components('components', 'components_broken', fi)
 		# Create file storage from broken components
 		components = load_components("components_broken", silent=True)
-		nvp = NVPStrategy(silent=True)
-		fs = FileStorage(nvp, components)
+
+		nvp_strat = NVPStrategy(silent=True)
+		nvp = FileStorage(nvp_strat, components, "./data/nvp")
+		bl = Baseline(components[0], "./data/bl")
+		targets = [nvp, bl]
 		
-		q = Queue()
-		p = Process(target=run_experiment, args=(fs, workload_size, wg, q,))
-		p.start()
-		p.join()
-		p.kill()
+		wg = WorkloadGenerator(workload_size, seed=seed)
 
-		if not q.empty(): # Avoids deadlock
-			experiment_failures = q.get()
-		else:
-			experiment_failures = None
-		failures.append(experiment_failures)
+		for target_idx, target in enumerate(targets):
+			queue = Queue()
+			p = Process(target=run_experiment, args=(target, wg, queue,))
+			p.start()
+			p.join()
+			p.kill()
+			if not queue.empty(): # Avoids deadlock
+				num_failures = queue.get()
+			else:
+				num_failures = None
+			failures[target_idx].append(num_failures)
+			wg.reset()
 
-		# print("PID: ", p.pid)
-		# proc = psutil.Process(pid=p.pid)
-		# proc_files = proc.open_files()
-		# for file in proc_files:
-		# 	print(file)
-
-	x, heights = barplot_bins(failures)
-	print("Keys without outliers", x)
-	print("Values without outliers", heights)
-	plt.bar(x, heights)
-	plt.show()
+	# x, heights = barplot_bins(failures)
+	# plt.bar(x, heights)
+	# plt.show()
 	print(failures)
 
 if __name__ == '__main__':

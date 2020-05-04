@@ -1,11 +1,7 @@
 import importlib
 import pkgutil
 import sys
-
-import tracemalloc
-import gc
-import inspect
-import trace
+import os
 
 def member_names(members):
 	for name, obj in members:
@@ -82,18 +78,37 @@ class RBStrategy():
 
 class Baseline():
 
-	def __init__(self, component):
+	def __init__(self, component, data_dir):
 		self.component = component
+		self.data_dir = data_dir
+
+	def read(self, filename):
+		path = os.path.join(self.data_dir, filename)
+		try:
+			result = self.component.read(path)
+			return result
+		except:
+			return None
+
+	def write(self, filename, value):
+		path = os.path.join(self.data_dir, filename)
+		try:
+			self.component.write(path, value)
+		except:
+			return None
 
 
 class FileStorage():
 
-	def __init__(self, ft_strategy, components):
+	def __init__(self, ft_strategy, components, data_dir):
 		self.components = components
+		self.data_dir = data_dir
 		self.ft_strategy = ft_strategy
 
 	def read(self, filename):
-		return self.ft_strategy.read(self.components, filename)
+		path = os.path.join(self.data_dir, filename)
+		return self.ft_strategy.read(self.components, path)
 
 	def write(self, filename, value):
-		return self.ft_strategy.write(self.components, filename, value)
+		path = os.path.join(self.data_dir, filename)
+		return self.ft_strategy.write(self.components, path, value)
