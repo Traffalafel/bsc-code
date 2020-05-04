@@ -53,9 +53,9 @@ class WorkloadGenerator():
 	# Returns (input, true_result)
 	def __next__(self):
 
-		self.count += 1
 		if self.count == self.size:
 			raise StopIteration()
+		self.count += 1
 
 		if len(self.state.keys()) == 0:
 			rnd = 0

@@ -6,10 +6,11 @@ from workload_generator import WorkloadGenerator
 from file_storage import FileStorage, NVPStrategy, Baseline
 import importlib
 import pkgutil
-
+import random
 import py_compile
 from multiprocessing import Process, Queue
 import matplotlib.pyplot as plt
+
 
 def load_components(package_name, silent=True):
 	components = []
@@ -65,7 +66,6 @@ class FailureLogger():
 		if not self.silent:
 			print("Failure detected")
 
-
 def break_components(input_dir, output_dir, fault_injector):
 	components_src = load_package_src(input_dir)
 	for idx, _ in enumerate(components_src):
@@ -80,8 +80,8 @@ def run_experiment(target, workload_generator, out_queue):
 			failure_count += 1
 	out_queue.put(failure_count)
 
-def experiment(targets, workload_generator):
-	pass
+def generate_seed():
+	return random.randint(-sys.maxsize-1, sys.maxsize)
 
 def barplot_bins(failures, remove_outliers=True):
 	freqs = dict()
@@ -117,7 +117,7 @@ def main(args):
 
 	fi = FaultInjector()
 	failures = [[],[]]
-	seed = 420
+	seed = generate_seed()
 
 	for idx in range(num_experiments):
 
@@ -125,7 +125,6 @@ def main(args):
 
 		clear_directory("./data/nvp")
 		clear_directory("./data/bl")
-
 
 		# Break components
 		break_components('components', 'components_broken', fi)
