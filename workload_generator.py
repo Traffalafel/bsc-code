@@ -16,11 +16,11 @@ class WorkloadGenerator():
 		self.count = 0
 		self.random = random.Random(self.seed)
 
-	def gen_new_value(self):
+	def gen_new_value(self, max_length=10):
 		possible_chars = list(string.ascii_letters)
 		possible_chars += list(string.digits)
 		output = ""
-		length = self.random.randint(1, 10)
+		length = self.random.randint(1, max_length)
 		for _ in range(length):
 			output += self.random.choice(possible_chars)
 		return output
@@ -28,11 +28,11 @@ class WorkloadGenerator():
 	def get_existing_id(self):
 		return self.random.choice(list(self.state.keys()))
 
-	def gen_new_id(self):
+	def gen_new_id(self, max_length=10):
 		possible_chars = list(string.ascii_letters)
 		possible_chars += list(string.digits)
 		output = ""
-		length = self.random.randint(1, 10)
+		length = self.random.randint(1, max_length)
 		for _ in range(length):
 			output += self.random.choice(possible_chars)
 		return output
@@ -64,15 +64,15 @@ class WorkloadGenerator():
 
 		# Write to new grain
 		if rnd == 0:
-			new_id = self.gen_new_id()
-			new_val = self.gen_new_value()
+			new_id = self.gen_new_id(max_length=100)
+			new_val = self.gen_new_value(max_length=100)
 			self.state[new_id] = new_val
 			return self.gen_write(new_id, new_val), len(new_val)
 
 		# Overwrite existing grain
 		if rnd == 1:
 			grain_id = self.get_existing_id()
-			new_val = self.gen_new_value()
+			new_val = self.gen_new_value(max_length=100)
 			self.state[grain_id] = new_val
 			return self.gen_write(grain_id, new_val), len(new_val)
 

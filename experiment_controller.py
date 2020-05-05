@@ -10,7 +10,7 @@ import random
 import py_compile
 from multiprocessing import Process, Queue
 import matplotlib.pyplot as plt
-
+import pickle
 
 def load_components(package_name, silent=True):
 	components = []
@@ -19,7 +19,8 @@ def load_components(package_name, silent=True):
 			path = os.path.join(".", package_name, component.name + ".py")
 			py_compile.compile(path, doraise=True)
 			component_module = importlib.import_module(".%s" % component.name, package_name)
-			components.append(component_module.Component())
+			component = component_module.Component()
+			components.append(component)
 			if not silent:
 				print("Successfully imported component %s" % component.name)
 		except Exception as e:
@@ -52,19 +53,11 @@ def save_package_src(package_src, name, silent=True):
 
 def clear_directory(path):
 	for filename in os.listdir(path):
-		file_path = os.path.join(path, filename)
-		os.remove(file_path)
-
-class FailureLogger():
-
-	def __init__(self, silent=True):
-		self.silent = silent
-		self.num_failures = 0
-
-	def log_failure(self):
-		self.num_failures += 1
-		if not self.silent:
-			print("Failure detected")
+		path = os.path.join(path, filename)
+		if os.path.isdir(path):
+			shutil.rmtree(path)
+		if os.path.isfile(path):
+			os.remove(path)
 
 def break_components(input_dir, output_dir, fault_injector):
 	components_src = load_package_src(input_dir)
@@ -72,13 +65,25 @@ def break_components(input_dir, output_dir, fault_injector):
 		components_src[idx] = fault_injector.inject(components_src[idx])
 	return save_package_src(components_src, output_dir)
 
-def run_experiment(target, workload_generator, out_queue):
+def process_fn(target, workload_generator, out_queue):
 	failure_count = 0
 	for command, true_result in workload_generator:
 		result = command(target)
 		if result != true_result:
 			failure_count += 1
 	out_queue.put(failure_count)
+
+def test(target, workload_generator):
+	queue = Queue()
+	p = Process(target=process_fn, args=(target, workload_generator, queue,))
+	p.start()
+	p.join()
+	p.kill()
+	if not queue.empty(): # Avoids deadlock
+		return queue.get()
+	else:
+		# If cannot get result set every I/O pair to failure
+		return workload_generator.size
 
 def generate_seed():
 	return random.randint(-sys.maxsize-1, sys.maxsize)
@@ -99,11 +104,9 @@ def barplot_bins(failures, remove_outliers=True):
 	# 	return keys, vals
 
 def main(args):
-
 	if len(args) != 3:
 		print("Usage: experiment_controller.py <num_experiments> <workload_size>")
 		return
-	
 	try:
 		num_experiments = int(args[1])
 	except:
@@ -114,48 +117,72 @@ def main(args):
 	except:
 		print("workload_size must be number")
 		return
+	target_failures, baseline_failures = resilience_test(num_experiments, workload_size)
+
+def pickle_results(obj, path):
+	with open(path, "w+") as file:
+		pickle.dump(obj, file)
+
+def resilience_test(num_experiments, workload_size):
 
 	fi = FaultInjector()
-	seed = generate_seed()
 	
-	nvp_strat = NVPStrategy(silent=True)
+	nvp_strat = NVPStrategy()
 	nvp = FileStorage(nvp_strat, [], "./data/nvp")
-	bl = Baseline(None, "./data/bl")
-	targets = [nvp, bl]
-	failures = [[] for _ in targets]
+
+	targets = [nvp]
+	baselines = []
+
+	target_failures = [[] for _ in targets]
+	baseline_failures = []
 
 	for idx in range(num_experiments):
 
-		print("Experiment no. %d" % (idx+1))
+		seed = generate_seed()
 
-		clear_directory("./data/nvp")
-		clear_directory("./data/bl")
+		# Reset data directories
+		clear_directory(os.path.join("data", "nvp"))
+		clear_directory(os.path.join("data", "baseline"))
 
 		# Create new broken components
 		break_components('components', 'components_broken', fi)
-		components = load_components("components_broken", silent=True)
+		components = load_components("components_broken")
+
+		# Inject resilience targets with new components
 		nvp.set_components(components)
-		bl.set_component(components[0])
+
+		# Create new baselines
+		baselines = []
+		for component_idx, component in enumerate(components):
+			data_dir = os.path.join("data", "baseline", str(component_idx))
+			baselines.append(Baseline(component, data_dir))
+
+		# Logging information about experiment
+		print("Experiment no. %d" % (idx+1))
+		# print("Number of viable components: %d" % len(components))
 		
 		wg = WorkloadGenerator(workload_size, seed=seed)
 
+		# Test targets
 		for target_idx, target in enumerate(targets):
-			queue = Queue()
-			p = Process(target=run_experiment, args=(target, wg, queue,))
-			p.start()
-			p.join()
-			p.kill()
-			if not queue.empty(): # Avoids deadlock
-				num_failures = queue.get()
-			else:
-				num_failures = None
-			failures[target_idx].append(num_failures)
+			num_failures = test(target, wg)
+			target_failures[target_idx].append(num_failures)
+			wg.reset()
+
+		# Test baselines
+		for baseline_idx, baseline in enumerate(baselines):
+			num_failures = test(baseline, wg)
+			baseline_failures.append(num_failures)
 			wg.reset()
 
 	# x, heights = barplot_bins(failures)
 	# plt.bar(x, heights)
 	# plt.show()
-	print(failures)
+	print(target_failures)
+	print(baseline_failures)
+
+	pickle_results(target_failures, os.path.join("results", "target_%d_%d" % (num_experiments, workload_size)))
+	pickle_results(baseline_failures, os.path.join("results", "baseline_%d_%d" % (num_experiments, workload_size)))
 
 if __name__ == '__main__':
 	main(sys.argv)

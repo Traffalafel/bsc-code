@@ -3,10 +3,6 @@ import pkgutil
 import sys
 import os
 
-def member_names(members):
-	for name, obj in members:
-		print(name)
-
 class NVPStrategy():
 
 	def __init__(self, silent=True):
@@ -37,21 +33,12 @@ class NVPStrategy():
 	def write(self, components, filename, value):
 		lengths = []
 		for idx, component in enumerate(components):
-			
-			# # [Measure memory]
-			# before = tracemalloc.take_snapshot()
-
 			try:
 				length = component.write(filename, value)
 				lengths.append((component, length))
 			except Exception as e:
 				if not self.silent:
 					print("Component %i failed writing\n%s" % (idx+1, e))
-			
-			# # [Measure memory]
-			# after = tracemalloc.take_snapshot()
-			# diff = after.compare_to(before, 'filename')
-		
 		# Find correct output
 		lengths_freq = dict()
 		for _, length in lengths:
@@ -78,9 +65,12 @@ class RBStrategy():
 
 class Baseline():
 
-	def __init__(self, component, data_dir):
+	def __init__(self, component, data_dir, silent=True):
 		self.__component = component
 		self.data_dir = data_dir
+		if not os.path.exists(data_dir):
+			os.makedirs(data_dir)
+		self.silent = silent
 
 	def set_component(self, component):
 		self.__component = component
@@ -90,14 +80,18 @@ class Baseline():
 		try:
 			result = self.__component.read(path)
 			return result
-		except:
+		except Exception as e:
+			if not self.silent:
+				print(e)
 			return None
 
 	def write(self, filename, value):
 		path = os.path.join(self.data_dir, filename)
 		try:
 			self.__component.write(path, value)
-		except:
+		except Exception as e:
+			if not self.silent:
+				print(e)
 			return None
 
 

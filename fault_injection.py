@@ -73,14 +73,6 @@ class FaultInjector():
 	def __init__(self):
 		self.mutations = [insert_char, swap_commands, remove_command, remove_char]
 
-	# Regenerate the fault that is going to be injected
-	def regenerate(self):
-		pass
-
-	# Log a description of the fault sequence being injected
-	def log_fault(self):
-		pass
-
 	def inject(self, source: str):
 		mutation = random.choice(self.mutations)
 		return mutation(source)
