@@ -10,7 +10,7 @@ import random
 import py_compile
 from multiprocessing import Process, Queue
 import matplotlib.pyplot as plt
-import pickle
+import json
 
 def load_components(package_name, silent=True):
 	components = []
@@ -88,40 +88,13 @@ def test(target, workload_generator):
 def generate_seed():
 	return random.randint(-sys.maxsize-1, sys.maxsize)
 
-def barplot_bins(failures, remove_outliers=True):
-	freqs = dict()
-	for f in failures:
-		freqs[f] = freqs.get(f, 0) + 1
-	keys = list(freqs.keys())
-	vals = list(freqs.values())
-	return keys, vals
-	# indices = list(range(len(keys)))
-	# indices.remove(keys.index(min(keys)))
-	# indices.remove(keys.index(max(keys)))
-	# if remove_outliers:
-	# 	return [keys[i] for i in indices], [vals[i] for i in indices]
-	# else:
-	# 	return keys, vals
+def save_results(obj, path):
+	with open(path + ".json", "w+") as file:
+		json.dump(obj, file,)
 
-def main(args):
-	if len(args) != 3:
-		print("Usage: experiment_controller.py <num_experiments> <workload_size>")
-		return
-	try:
-		num_experiments = int(args[1])
-	except:
-		print("num_experiments must be number")
-		return
-	try:
-		workload_size = int(args[2])
-	except:
-		print("workload_size must be number")
-		return
-	target_failures, baseline_failures = resilience_test(num_experiments, workload_size)
-
-def pickle_results(obj, path):
-	with open(path, "w+") as file:
-		pickle.dump(obj, file)
+def load_results(path):
+	with open(path+".json", "r") as file:
+		return json.load(file)
 
 def resilience_test(num_experiments, workload_size):
 
@@ -175,14 +148,29 @@ def resilience_test(num_experiments, workload_size):
 			baseline_failures.append(num_failures)
 			wg.reset()
 
-	# x, heights = barplot_bins(failures)
-	# plt.bar(x, heights)
-	# plt.show()
-	print(target_failures)
-	print(baseline_failures)
+	return target_failures, baseline_failures
 
-	pickle_results(target_failures, os.path.join("results", "target_%d_%d" % (num_experiments, workload_size)))
-	pickle_results(baseline_failures, os.path.join("results", "baseline_%d_%d" % (num_experiments, workload_size)))
+def main(args):
+	if len(args) != 3:
+		print("Usage: experiment_controller.py <num_experiments> <workload_size>")
+		return
+	try:
+		num_experiments = int(args[1])
+	except:
+		print("num_experiments must be number")
+		return
+	try:
+		workload_size = int(args[2])
+	except:
+		print("workload_size must be number")
+		return
+
+	target_failures, baseline_failures = resilience_test(num_experiments, workload_size)
+
+	suffix = "_%d_%d" % (num_experiments, workload_size)
+	save_results(target_failures, os.path.join("results", "target%s" % suffix))
+	save_results(baseline_failures, os.path.join("results", "baseline%s" % suffix))
+
 
 if __name__ == '__main__':
 	main(sys.argv)
