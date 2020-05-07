@@ -3,7 +3,7 @@ import shutil
 import sys
 from fault_injection import FaultInjector
 from workload_generator import WorkloadGenerator
-from file_storage import FileStorage, NVPStrategy, Baseline
+from file_storage import FileStorage, NVPStrategy, RBStrategy, Baseline
 import importlib
 import pkgutil
 import random
@@ -51,14 +51,6 @@ def save_package_src(package_src, name, silent=True):
 		with open('%s/component_%d.py' % (name, idx+1), 'w+', encoding='utf-8') as fd:
 			fd.write(component_src)
 
-def clear_directory(path):
-	for filename in os.listdir(path):
-		path = os.path.join(path, filename)
-		if os.path.isdir(path):
-			shutil.rmtree(path)
-		if os.path.isfile(path):
-			os.remove(path)
-
 def break_components(input_dir, output_dir, fault_injector):
 	components_src = load_package_src(input_dir)
 	for idx, _ in enumerate(components_src):
@@ -85,8 +77,13 @@ def test(target, workload_generator):
 		# If cannot get result set every I/O pair to failure
 		return workload_generator.size
 
-def generate_seed():
-	return random.randint(-sys.maxsize-1, sys.maxsize)
+def test_multiple(targets, workload_generator):
+	fails = []
+	for target_idx, target in enumerate(targets):
+		num_failures = test(target, workload_generator)
+		fails.append(num_failures)
+		workload_generator.restart()
+	return fails
 
 def save_results(obj, path):
 	with open(path + ".json", "w+") as file:
@@ -96,33 +93,32 @@ def load_results(path):
 	with open(path+".json", "r") as file:
 		return json.load(file)
 
+def create_fs(components, strategies):
+	pass
+
 def resilience_test(num_experiments, workload_size):
 
 	fi = FaultInjector()
 	
 	nvp_strat = NVPStrategy()
-	nvp = FileStorage(nvp_strat, [], "./data/nvp")
+	rb_strat = RBStrategy()
 
-	targets = [nvp]
-	baselines = []
-
-	target_failures = [[] for _ in targets]
+	target_failures = []
 	baseline_failures = []
 
 	for idx in range(num_experiments):
 
-		seed = generate_seed()
-
 		# Reset data directories
-		clear_directory(os.path.join("data", "nvp"))
-		clear_directory(os.path.join("data", "baseline"))
+		shutil.rmtree("data")
 
 		# Create new broken components
 		break_components('components', 'components_broken', fi)
 		components = load_components("components_broken")
 
 		# Inject resilience targets with new components
-		nvp.set_components(components)
+		nvp = FileStorage(nvp_strat, components, os.path.join("data", "nvp"))
+		rb = FileStorage(rb_strat, components, os.path.join("data", "rb"))
+		targets = [nvp, rb]
 
 		# Create new baselines
 		baselines = []
@@ -134,19 +130,13 @@ def resilience_test(num_experiments, workload_size):
 		print("Experiment no. %d" % (idx+1))
 		# print("Number of viable components: %d" % len(components))
 		
-		wg = WorkloadGenerator(workload_size, seed=seed)
+		wg = WorkloadGenerator(workload_size)
 
 		# Test targets
-		for target_idx, target in enumerate(targets):
-			num_failures = test(target, wg)
-			target_failures[target_idx].append(num_failures)
-			wg.reset()
+		target_failures.append(test_multiple(targets, wg))
 
 		# Test baselines
-		for baseline_idx, baseline in enumerate(baselines):
-			num_failures = test(baseline, wg)
-			baseline_failures.append(num_failures)
-			wg.reset()
+		baseline_failures += test_multiple(baselines, wg)
 
 	return target_failures, baseline_failures
 
@@ -167,10 +157,13 @@ def main(args):
 
 	target_failures, baseline_failures = resilience_test(num_experiments, workload_size)
 
+	# Log results
+	print("Target failures: ", target_failures)
+	print("Baseline failures: ", baseline_failures)
+
 	suffix = "_%d_%d" % (num_experiments, workload_size)
 	save_results(target_failures, os.path.join("results", "target%s" % suffix))
 	save_results(baseline_failures, os.path.join("results", "baseline%s" % suffix))
-
 
 if __name__ == '__main__':
 	main(sys.argv)

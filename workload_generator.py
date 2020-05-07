@@ -6,13 +6,19 @@ import sys
 
 class WorkloadGenerator():
 
-	def __init__(self, workload_size, seed):
+	def __init__(self, workload_size, seed=None):
 		self.size = workload_size
 		self.state = dict()
-		self.seed = seed
-		self.reset()
+		if seed is None:
+			self.gen_new_seed()
+		else:
+			self.seed = seed
+		self.restart()
 
-	def reset(self,):
+	def gen_new_seed(self):
+		self.seed = random.randint(-sys.maxsize-1, sys.maxsize)
+
+	def restart(self,):
 		self.count = 0
 		self.random = random.Random(self.seed)
 

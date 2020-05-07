@@ -57,11 +57,26 @@ class RBStrategy():
 		self.silent = silent
 
 	def read(self, components, filename):
-		pass
+		for component_idx, component in enumerate(components):
+			try:
+				result = component.read(filename)
+				return result
+			except Exception as e:
+				if not self.silent:
+					print("Component %d failed: %s" % (component_idx+1, e))
+		# If all components fail
+		return None
 
 	def write(self, components, filename, value):
-		pass
-
+		for component_idx, component in enumerate(components):
+			try:
+				result = component.write(filename, value)
+				return result
+			except Exception as e:
+				if not self.silent:
+					print("Component %d failed: %s" % (component_idx+1, e))
+		# If all components fail
+		return None
 
 class Baseline():
 
@@ -71,9 +86,6 @@ class Baseline():
 		if not os.path.exists(data_dir):
 			os.makedirs(data_dir)
 		self.silent = silent
-
-	def set_component(self, component):
-		self.__component = component
 
 	def read(self, filename):
 		path = os.path.join(self.data_dir, filename)
@@ -94,17 +106,15 @@ class Baseline():
 				print(e)
 			return None
 
-
 class FileStorage():
 
 	def __init__(self, ft_strategy, components, data_dir):
 		self.__components = components
-		self.data_dir = data_dir
 		self.ft_strategy = ft_strategy
-
-	def set_components(self, components):
-		self.__components = components
-
+		self.data_dir = data_dir
+		if not os.path.exists(data_dir):
+			os.makedirs(data_dir)
+	
 	def read(self, filename):
 		path = os.path.join(self.data_dir, filename)
 		return self.ft_strategy.read(self.__components, path)
