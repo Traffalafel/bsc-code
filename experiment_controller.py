@@ -19,6 +19,8 @@ def load_components(package_name, silent=True):
 			path = os.path.join(".", package_name, component.name + ".py")
 			py_compile.compile(path, doraise=True)
 			component_module = importlib.import_module(".%s" % component.name, package_name)
+			if "Component" not in dir(component_module):
+				continue
 			component = component_module.Component()
 			components.append(component)
 			if not silent:
@@ -90,11 +92,8 @@ def save_results(obj, path):
 		json.dump(obj, file,)
 
 def load_results(path):
-	with open(path+".json", "r") as file:
+	with open(path, "r") as file:
 		return json.load(file)
-
-def create_fs(components, strategies):
-	pass
 
 def resilience_test(num_experiments, workload_size):
 
@@ -103,7 +102,8 @@ def resilience_test(num_experiments, workload_size):
 	nvp_strat = NVPStrategy()
 	rb_strat = RBStrategy()
 
-	target_failures = []
+	nvp_failures = []
+	rb_failures = []
 	baseline_failures = []
 
 	for idx in range(num_experiments):
@@ -128,17 +128,18 @@ def resilience_test(num_experiments, workload_size):
 
 		# Logging information about experiment
 		print("Experiment no. %d" % (idx+1))
-		# print("Number of viable components: %d" % len(components))
 		
 		wg = WorkloadGenerator(workload_size)
 
 		# Test targets
-		target_failures.append(test_multiple(targets, wg))
+		target_failures = test_multiple(targets, wg)
+		nvp_failures.append(target_failures[0])
+		rb_failures.append(target_failures[1])
 
 		# Test baselines
 		baseline_failures += test_multiple(baselines, wg)
 
-	return target_failures, baseline_failures
+	return nvp_failures, rb_failures, baseline_failures
 
 def main(args):
 	if len(args) != 3:
@@ -155,14 +156,16 @@ def main(args):
 		print("workload_size must be number")
 		return
 
-	target_failures, baseline_failures = resilience_test(num_experiments, workload_size)
+	nvp_failures, rb_failures, baseline_failures = resilience_test(num_experiments, workload_size)
 
 	# Log results
-	print("Target failures: ", target_failures)
+	print("NVP failures: ", nvp_failures)
+	print("RB failures: ", rb_failures)
 	print("Baseline failures: ", baseline_failures)
 
 	suffix = "_%d_%d" % (num_experiments, workload_size)
-	save_results(target_failures, os.path.join("results", "target%s" % suffix))
+	save_results(nvp_failures, os.path.join("results", "nvp%s" % suffix))
+	save_results(rb_failures, os.path.join("results", "rb%s" % suffix))
 	save_results(baseline_failures, os.path.join("results", "baseline%s" % suffix))
 
 if __name__ == '__main__':
