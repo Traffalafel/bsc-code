@@ -2,8 +2,6 @@ import random
 import string
 import sys
 
-# TODO: turn into a Python generator object
-
 class WorkloadGenerator():
 
 	def __init__(self, workload_size, seed=None):
@@ -25,6 +23,8 @@ class WorkloadGenerator():
 	def gen_new_value(self, max_length=10):
 		possible_chars = list(string.ascii_letters)
 		possible_chars += list(string.digits)
+		possible_chars += list(string.punctuation)
+		possible_chars += list(string.whitespace)
 		output = ""
 		length = self.random.randint(1, max_length)
 		for _ in range(length):
@@ -70,15 +70,15 @@ class WorkloadGenerator():
 
 		# Write to new grain
 		if rnd == 0:
-			new_id = self.gen_new_id(max_length=100)
-			new_val = self.gen_new_value(max_length=100)
+			new_id = self.gen_new_id(max_length=200)
+			new_val = self.gen_new_value(max_length=1000)
 			self.state[new_id] = new_val
 			return self.gen_write(new_id, new_val), len(new_val)
 
 		# Overwrite existing grain
 		if rnd == 1:
 			grain_id = self.get_existing_id()
-			new_val = self.gen_new_value(max_length=100)
+			new_val = self.gen_new_value(max_length=1000)
 			self.state[grain_id] = new_val
 			return self.gen_write(grain_id, new_val), len(new_val)
 

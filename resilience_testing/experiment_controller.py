@@ -3,7 +3,7 @@ import shutil
 import sys
 from fault_injection import FaultInjector
 from workload_generator import WorkloadGenerator
-from file_storage import FileStorage, NVPStrategy, RBStrategy, Baseline
+from file_storage import NVersionProgramming, RecoveryBlock, Baseline
 import importlib
 import pkgutil
 import random
@@ -12,22 +12,35 @@ from multiprocessing import Process, Queue
 import matplotlib.pyplot as plt
 import json
 
-def load_components(package_name, silent=True):
-	components = []
-	for component in pkgutil.iter_modules([package_name]):
+def load_modules(package_name, silent=True):
+	modules = []
+	for submodule in pkgutil.iter_modules([package_name]):
 		try:
-			path = os.path.join(".", package_name, component.name + ".py")
+			path = os.path.join(".", package_name, submodule.name + ".py")
 			py_compile.compile(path, doraise=True)
-			component_module = importlib.import_module(".%s" % component.name, package_name)
-			if "Component" not in dir(component_module):
+			module = importlib.import_module(".%s" % submodule.name, package_name)
+			if "Component" not in dir(module):
+				print("Cannot find \"Component\"")
 				continue
-			component = component_module.Component()
-			components.append(component)
+			modules.append(module)
 			if not silent:
-				print("Successfully imported component %s" % component.name)
+				print("Successfully imported submodule %s" % submodule.name)
 		except Exception as e:
 			if not silent:
-				print("Failed to import component '%s'\n%s" % (component.name, e))
+				print("Failed to import submodule '%s'\n%s" % (submodule.name, e))
+	return modules
+
+def load_components(modules, folder_name, individual_dirs):
+	path = os.path.join("data", folder_name)
+	components = []
+	for module_idx, module in enumerate(modules):
+		if individual_dirs:
+			path = os.path.join("data", folder_name, str(module_idx))
+		try:
+			component = module.Component(data_dir=path)
+		except:
+			continue
+		components.append(component)
 	return components
 
 def load_package_src(name):
@@ -98,9 +111,6 @@ def load_results(path):
 def resilience_test(num_experiments, workload_size):
 
 	fi = FaultInjector()
-	
-	nvp_strat = NVPStrategy()
-	rb_strat = RBStrategy()
 
 	nvp_failures = []
 	rb_failures = []
@@ -109,22 +119,25 @@ def resilience_test(num_experiments, workload_size):
 	for idx in range(num_experiments):
 
 		# Reset data directories
-		shutil.rmtree("data")
+		if os.path.exists("data"):
+			shutil.rmtree("data")
 
 		# Create new broken components
 		break_components('components', 'components_broken', fi)
-		components = load_components("components_broken")
+		modules_broken = load_modules("components_broken")
+
+		# Load components broken
+		nvp_components = load_components(modules_broken, "nvp", individual_dirs=True)
+		rb_components = load_components(modules_broken, "rb", individual_dirs=False)
+		baseline_components = load_components(modules_broken, "baseline", individual_dirs=True)
 
 		# Inject resilience targets with new components
-		nvp = FileStorage(nvp_strat, components, os.path.join("data", "nvp"))
-		rb = FileStorage(rb_strat, components, os.path.join("data", "rb"))
-		targets = [nvp, rb]
-
-		# Create new baselines
+		nvp = NVersionProgramming(nvp_components)
+		rb = RecoveryBlock(rb_components)
 		baselines = []
-		for component_idx, component in enumerate(components):
-			data_dir = os.path.join("data", "baseline", str(component_idx))
-			baselines.append(Baseline(component, data_dir))
+		for component in baseline_components:
+			baselines.append(Baseline(component))
+		targets = [nvp, rb]
 
 		# Logging information about experiment
 		print("Experiment no. %d" % (idx+1))

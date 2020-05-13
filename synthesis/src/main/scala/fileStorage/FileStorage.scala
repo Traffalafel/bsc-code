@@ -36,6 +36,7 @@ object FileStorage {
       count += 1
       save_inhabitant(s"$output_dir/component_$count.py", exp)
     })
+    println(s"Synthesized ${count} components")
 
   }
 }
