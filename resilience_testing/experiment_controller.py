@@ -30,12 +30,12 @@ def load_modules(package_name, silent=True):
 				print("Failed to import submodule '%s'\n%s" % (submodule.name, e))
 	return modules
 
-def load_components(modules, folder_name, individual_dirs):
-	path = os.path.join("data", folder_name)
+def load_components(modules, data_dir, folder_name, individual_dirs):
+	path = os.path.join(data_dir, folder_name)
 	components = []
 	for module_idx, module in enumerate(modules):
 		if individual_dirs:
-			path = os.path.join("data", folder_name, str(module_idx))
+			path = os.path.join(data_dir, folder_name, str(module_idx))
 		try:
 			component = module.Component(data_dir=path)
 		except:
@@ -108,7 +108,7 @@ def load_results(path):
 	with open(path, "r") as file:
 		return json.load(file)
 
-def resilience_test(num_experiments, workload_size):
+def resilience_test(num_experiments, workload_size, components_dir, data_dir, results_dir):
 
 	fi = FaultInjector()
 
@@ -119,17 +119,17 @@ def resilience_test(num_experiments, workload_size):
 	for idx in range(num_experiments):
 
 		# Reset data directories
-		if os.path.exists("data"):
-			shutil.rmtree("data")
+		if os.path.exists(data_dir):
+			shutil.rmtree(data_dir)
 
 		# Create new broken components
-		break_components('components', 'components_broken', fi)
+		break_components(components_dir, 'components_broken', fi)
 		modules_broken = load_modules("components_broken")
 
 		# Load components broken
-		nvp_components = load_components(modules_broken, "nvp", individual_dirs=True)
-		rb_components = load_components(modules_broken, "rb", individual_dirs=False)
-		baseline_components = load_components(modules_broken, "baseline", individual_dirs=True)
+		nvp_components = load_components(modules_broken, data_dir, "nvp", individual_dirs=True)
+		rb_components = load_components(modules_broken, data_dir, "rb", individual_dirs=False)
+		baseline_components = load_components(modules_broken, data_dir, "baseline", individual_dirs=True)
 
 		# Inject resilience targets with new components
 		nvp = NVersionProgramming(nvp_components)
@@ -155,31 +155,33 @@ def resilience_test(num_experiments, workload_size):
 	return nvp_failures, rb_failures, baseline_failures
 
 def main(args):
-	if len(args) != 3:
-		print("Usage: experiment_controller.py <num_experiments> <workload_size>")
+	if len(args) != 6:
+		print("Usage: experiment_controller.py <num_experiments> <workload_size> <components_dir> <data_dir> <results_dir>")
 		return
 	try:
 		num_experiments = int(args[1])
-	except:
-		print("num_experiments must be number")
-		return
-	try:
 		workload_size = int(args[2])
-	except:
-		print("workload_size must be number")
+		components_dir = args[3]
+		data_dir = args[4]
+		results_dir = args[5]
+	except Exception as e:
+		print("Inputted formatted incorrectly:\n", e)
 		return
 
-	nvp_failures, rb_failures, baseline_failures = resilience_test(num_experiments, workload_size)
+	results = resilience_test(num_experiments, workload_size, components_dir, data_dir, results_dir)
+	nvp_failures, rb_failures, baseline_failures = results
 
 	# Log results
 	print("NVP failures: ", nvp_failures)
 	print("RB failures: ", rb_failures)
 	print("Baseline failures: ", baseline_failures)
 
+	if not os.path.exists(results_dir):
+		os.makedirs(results_dir)
 	suffix = "_%d_%d" % (num_experiments, workload_size)
-	save_results(nvp_failures, os.path.join("results", "nvp%s" % suffix))
-	save_results(rb_failures, os.path.join("results", "rb%s" % suffix))
-	save_results(baseline_failures, os.path.join("results", "baseline%s" % suffix))
+	save_results(nvp_failures, os.path.join(results_dir, "nvp%s" % suffix))
+	save_results(rb_failures, os.path.join(results_dir, "rb%s" % suffix))
+	save_results(baseline_failures, os.path.join(results_dir, "baseline%s" % suffix))
 
 if __name__ == '__main__':
 	main(sys.argv)
