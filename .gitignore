@@ -1,6 +1,7 @@
 .vscode
 __pycache__
 components
-components_broken
-data
 results
+resilience_testing/components_broken
+resilience_testing/data
+resilience_testing/results
