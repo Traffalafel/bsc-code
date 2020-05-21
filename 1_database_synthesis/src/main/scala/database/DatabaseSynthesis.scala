@@ -1,14 +1,13 @@
-package fileStorage
+package database
 
 import org.combinators.cls.interpreter.ReflectedRepository
 import org.combinators.cls.types.syntax._
 import org.combinators.templating.twirl.Python
 import java.io._
 
-// sample code showing how to directly invoke, without web service.
-object FileStorage {
+object DatabaseSynthesis {
 
-  def save_inhabitant(filename:String, python:Python) = {
+  def save_inhabitant(filename:String, python:Python): Unit = {
     val writer = new PrintWriter(new File(filename))
     writer.write(python.getCode)
     writer.close()
@@ -24,7 +23,7 @@ object FileStorage {
     lazy val repository = new Repository {}
     lazy val Gamma = ReflectedRepository(repository, classLoader = this.getClass.getClassLoader)
 
-    val results = Gamma.inhabit[Python]('FileStorage)
+    val results = Gamma.inhabit[Python](semanticTypes = 'Database)
     val expressions = results.interpretedTerms.values.flatMap(_._2)
 
     // Ensure the inhabitants output directory exists
@@ -34,9 +33,9 @@ object FileStorage {
     var count: Int = 0
     expressions.foreach(exp => {
       count += 1
-      save_inhabitant(s"$output_dir/component_$count.py", exp)
+      save_inhabitant(filename = s"$output_dir/version_$count.py", exp)
     })
-    println(s"Synthesized ${count} components")
+    println(s"Synthesized ${count} versions")
 
   }
 }
