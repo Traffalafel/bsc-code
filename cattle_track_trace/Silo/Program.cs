@@ -4,11 +4,11 @@ using Microsoft.Extensions.Logging;
 using Orleans;
 using Orleans.Configuration;
 using Orleans.Hosting;
-using Orleans.Runtime;
 using Orleans.Storage;
 using System;
 using System.Threading.Tasks;
 using System.IO;
+using Orleans.Runtime;
 
 namespace Silo
 {
@@ -26,9 +26,12 @@ namespace Silo
             {
                 Console.WriteLine("Starting silo");
                 var host = await StartSiloAsync();
-                Console.WriteLine("Silo created. Press <enter> to stop");
+                Console.WriteLine("Silo created. Press any key to stop");
                 Console.ReadLine();
+                var database = host.Services.GetService<FileDatabaseInterface>();
+                database.Dispose();
                 await host.StopAsync();
+                Console.WriteLine("Returning 0");
                 return 0;
             }
             catch (Exception e)
@@ -51,11 +54,11 @@ namespace Silo
                 {
                     services.AddSingleton(new FileDatabaseInterfaceOptions
                     {
-                        DatabaseScript = "C:\\Users\\traff\\Documents\\repos\\bsc\\CattleTrackTrace\\Python\\run-file-database.py",
+                        DatabaseScript = "C:\\Users\\traff\\Documents\\repos\\bsc\\bsc-code\\4_cattle_track_trace\\Database\\run-file-database.py",
                         ComponentName = "component",
-                        DataDirectory = "C:\\Users\\traff\\Documents\\repos\\bsc\\CattleTrackTrace\\Python\\data",
+                        DataDirectory = "C:\\Users\\traff\\Documents\\repos\\bsc\\bsc-code\\4_cattle_track_trace\\Database\\data",
                     });
-                    services.AddSingletonNamedService<IGrainStorage>("FileStorage", FileDatabaseInterfaceFactory.Create);
+                    services.AddSingletonNamedService<IGrainStorage, FileDatabaseInterface>("FileStorage");
                 })
                 .ConfigureApplicationParts(parts =>
                 {

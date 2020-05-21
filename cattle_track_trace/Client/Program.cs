@@ -56,11 +56,15 @@ namespace Client
             return client;
         }
 
-        private static Task DoClientWork(IClusterClient client)
+        private static async Task DoClientWork(IClusterClient client)
         {
-            var cow = client.GetGrain<ICow>(0);
-            cow.UpdateLocation("The Good Place");
-            return Task.CompletedTask;
+            var cow = client.GetGrain<ICow>(Guid.NewGuid());
+            Console.WriteLine("Cow grain id: {0}", cow.GetGrainIdentity().IdentityString);
+
+            await cow.UpdateLocation(new Location { Address = "90210 Mooverly Hills", Name = "Moo" });
+            
+            var cowLocation = await cow.GetLocation();
+            Console.WriteLine("Cow address: {0}", cowLocation.Address);
         }
     }
 }

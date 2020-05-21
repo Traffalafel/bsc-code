@@ -4,7 +4,8 @@
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
 # Additional stuff
-./Python/data
+./Database/data
+./Database/__pycache__
 
 # User-specific files
 *.rsuser

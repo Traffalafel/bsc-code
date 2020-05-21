@@ -2,6 +2,8 @@ import sys
 import fileinput
 import importlib
 
+import fault_tolerance
+
 def load_component(module_name, data_dir):
 	module = importlib.import_module(module_name)
 	return module.Component(data_dir)

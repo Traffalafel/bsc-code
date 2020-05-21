@@ -9,7 +9,7 @@ namespace Grains
     public class Farmer : Grain, IFarmer
     {
 
-        public Task<List<int>> GetCowIds()
+        public Task<List<Guid>> GetCowIds()
         {
             throw new NotImplementedException();
         }

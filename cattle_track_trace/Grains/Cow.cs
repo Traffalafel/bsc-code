@@ -20,18 +20,48 @@ namespace Grains
             [PersistentState("CowItinerary", "FileStorage")] IPersistentState<List<Point>> trajectory)
         {
             _trajectory = trajectory;
+            _ownerId = ownerId;
+            _location = location;
         }
 
         public override async Task OnActivateAsync()
         {
             await base.OnActivateAsync();
+
+            if (_ownerId.State == null)
+            {
+                _ownerId.State = Guid.Empty;
+            }
+            if (_location.State == null)
+            {
+                _location.State = new Location { Address = null, Name = null };
+            }
             if (_trajectory.State == null)
             {
-                // Default state is empty list
-                _ownerId = null;
-                _location = null;
                 _trajectory.State = new List<Point>();
             }
+        }
+
+        public Task<Guid> GetOwnerId()
+        {
+            return Task.FromResult(_ownerId.State);
+        }
+
+        public Task SetOwnerId(Guid newOwnerId)
+        {
+            _ownerId.State = newOwnerId;
+            return _ownerId.WriteStateAsync();
+        }
+
+        public Task<Location> GetLocation()
+        {
+            Console.WriteLine("Location wrapper: {0}", _location);  
+            return Task.FromResult(_location.State);
+        }
+        public Task UpdateLocation(Location newLocation)
+        {
+            _location.State = newLocation;
+            return _location.WriteStateAsync();
         }
 
         public Task<List<Point>> GetTrajectory()

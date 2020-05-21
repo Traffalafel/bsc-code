@@ -8,7 +8,7 @@ namespace Grains
     public interface ICow : IGrainWithGuidKey
     {
         Task<Guid> GetOwnerId();
-        Task SetOwnerId();
+        Task SetOwnerId(Guid newOwnerId);
 
         Task<Location> GetLocation();
         Task UpdateLocation(Location newLocation);

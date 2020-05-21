@@ -30,10 +30,8 @@ namespace Silo
         }
     }
 
-    public class FileDatabaseInterface : IGrainStorage
+    public class FileDatabaseInterface : IGrainStorage, IDisposable
     {
-
-        private readonly string _name;
         private readonly IGrainFactory _grainFactory;
         private readonly ILogger<FileDatabaseInterface> _logger;
         private readonly ITypeResolver _typeResolver;
@@ -43,16 +41,12 @@ namespace Silo
         private readonly string _componentName;
         private readonly string _databaseScript;
 
-        public string Name => _name;
-
         public FileDatabaseInterface(
-            string name,
             IGrainFactory grainFactory,
             ILogger<FileDatabaseInterface> logger,
             ITypeResolver typeResolver,
             FileDatabaseInterfaceOptions options)
         {
-            _name = name;
             _grainFactory = grainFactory;
             _logger = logger;
             _typeResolver = typeResolver;
@@ -81,6 +75,11 @@ namespace Silo
 
             _componentName = options.ComponentName;
             _logger.LogInformation("Component name: {0}", _componentName);
+        }
+
+        public void Dispose()
+        {
+            Console.WriteLine("DISPOSING!!");
         }
 
         private ProcessStartInfo CreateProcessInfo()
@@ -115,7 +114,10 @@ namespace Silo
                     result = await reader.ReadToEndAsync();
                 }
             }
-
+            if (string.IsNullOrWhiteSpace(result) || string.IsNullOrEmpty(result))
+            {
+                return;
+            }
             _logger.LogInformation("Result from reading: {0}", result);
             _logger.LogInformation("Deserializing back to type {0}", state.State.GetType());
             state.State = JsonConvert.DeserializeObject(result, state.State.GetType(), _serializerSettings);
