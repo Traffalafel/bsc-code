@@ -22,17 +22,3 @@ def load_modules(package_name, silent=True):
 			if not silent:
 				print("Failed to import submodule '%s'\n%s" % (submodule.name, e))
 	return modules
-
-def load_versions(modules, data_dir, folder_name, individual_dirs):
-	path = os.path.join(data_dir, folder_name)
-	versions = []
-	for module_idx, module in enumerate(modules):
-		if individual_dirs:
-			path = os.path.join(data_dir, folder_name, str(module_idx))
-		try:
-			version = module.Database(data_dir=path)
-		except:
-			continue
-		versions.append(version)
-	return versions
-	

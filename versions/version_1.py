@@ -5,20 +5,20 @@ class Database():
         if not os.path.exists(data_dir):
             os.makedirs(data_dir)
 
-    def read(self, filename):
-        path = os.path.join(self.data_dir, filename)
+    def read(self, state_id):
+        path = os.path.join(self.data_dir, state_id)
         file = open(path, 'r+', encoding='utf-8')
         content = file.read()
         file.close()
         return content
 
-    def write(self, filename, grain_state):
-        path = os.path.join(self.data_dir, filename)
+    def write(self, state_id, state_value):
+        path = os.path.join(self.data_dir, state_id)
         file = open(path, 'w+', encoding='utf-8')
-        chars_written = file.write(grain_state)
+        chars_written = file.write(state_value)
         file.close()
         return chars_written
 
-    def clear(self, filename):
-        path = os.path.join(self.data_dir, filename)
+    def clear(self, state_id):
+        path = os.path.join(self.data_dir, state_id)
         os.remove(path)

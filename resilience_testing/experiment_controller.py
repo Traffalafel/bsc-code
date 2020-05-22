@@ -8,7 +8,7 @@ import shutil
 
 from fault_tolerance.nvp import NVersionProgramming
 from fault_tolerance.rb import RecoveryBlock
-from fault_tolerance.version_loading import load_versions, load_modules
+from fault_tolerance.version_loading import load_modules
 
 from source_loading import load_package_src, save_package_src
 from fault_injection import FaultInjector
@@ -67,6 +67,9 @@ def resilience_test(num_experiments, workload_size, versions_dir, data_dir, resu
 
 	for idx in range(num_experiments):
 
+		# Logging information about experiment
+		print("Experiment no. %d" % (idx+1))
+
 		# Reset data directories
 		if os.path.exists(data_dir):
 			shutil.rmtree(data_dir)
@@ -75,21 +78,23 @@ def resilience_test(num_experiments, workload_size, versions_dir, data_dir, resu
 		break_versions(versions_dir, 'versions_broken', fi)
 		modules_broken = load_modules("versions_broken")
 
-		# Load versions broken
-		nvp_versions = load_versions(modules_broken, data_dir, "nvp", individual_dirs=True)
-		rb_versions = load_versions(modules_broken, data_dir, "rb", individual_dirs=False)
-		baseline_versions = load_versions(modules_broken, data_dir, "baseline", individual_dirs=True)
-
 		# Inject resilience targets with new versions
-		nvp = NVersionProgramming(nvp_versions)
-		rb = RecoveryBlock(rb_versions)
-		baselines = []
-		for version in baseline_versions:
-			baselines.append(Baseline(version))
+		nvp_dir = os.path.join(data_dir, 'nvp')
+		nvp = NVersionProgramming('versions_broken', nvp_dir)
+		rb_dir = os.path.join(data_dir, 'rb')
+		rb = RecoveryBlock('versions_broken', rb_dir)
 		targets = [nvp, rb]
 
-		# Logging information about experiment
-		print("Experiment no. %d" % (idx+1))
+		# Create baselines
+		baselines = []
+		modules = load_modules('versions_broken')
+		for module_idx, module in enumerate(modules):
+			try:
+				baseline_data_dir = os.path.join(data_dir, 'baseline', str(module_idx))
+				version = module.Database(baseline_data_dir)
+				baselines.append(Baseline(version))
+			except:
+				pass
 		
 		wg = WorkloadGenerator(workload_size)
 
