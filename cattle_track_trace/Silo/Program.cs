@@ -54,9 +54,9 @@ namespace Silo
                 {
                     services.AddSingleton(new FileDatabaseInterfaceOptions
                     {
-                        DatabaseScript = "C:\\Users\\traff\\Documents\\repos\\bsc\\bsc-code\\4_cattle_track_trace\\Database\\run-file-database.py",
+                        DatabaseScript = "C:\\Users\\traff\\Documents\\repos\\bsc\\bsc-code\\cattle_track_trace\\Database\\run-file-database.py",
                         ComponentName = "component",
-                        DataDirectory = "C:\\Users\\traff\\Documents\\repos\\bsc\\bsc-code\\4_cattle_track_trace\\Database\\data",
+                        DataDirectory = "C:\\Users\\traff\\Documents\\repos\\bsc\\bsc-code\\cattle_track_trace\\Database\\data",
                     });
                     services.AddSingletonNamedService<IGrainStorage, FileDatabaseInterface>("FileStorage");
                 })

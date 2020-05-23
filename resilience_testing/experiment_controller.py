@@ -8,30 +8,52 @@ import shutil
 
 from fault_tolerance.nvp import NVersionProgramming
 from fault_tolerance.rb import RecoveryBlock
-from fault_tolerance.version_loading import load_modules
+from fault_tolerance.module_loading import load_modules
 
 from source_loading import load_package_src, save_package_src
 from fault_injection import FaultInjector
 from workload_generator import WorkloadGenerator
 from baseline import Baseline
 
-def break_versions(input_dir, output_dir, fault_injector):
+def break_versions(input_dir, output_dir, fault_injector, num_bypass=0):
+	assert(num_bypass >= 0)
 	versions_src = load_package_src(input_dir)
-	for idx, _ in enumerate(versions_src):
-		versions_src[idx] = fault_injector.inject(versions_src[idx])
-	return save_package_src(versions_src, output_dir)
+	num_versions = len(versions_src)
+	if num_bypass != 0:
+		bypass_idxs = random.sample(range(num_versions), k=num_bypass)
+	else:
+		bypass_idxs = []
+	bypassed_src = [versions_src[i] for i in bypass_idxs]
+	break_idxs = [i for i in range(num_versions) if i not in bypass_idxs]
+	break_src = [versions_src[i] for i in break_idxs]
+	broken_src = []
+	for v in break_src:
+		broken_src.append(fault_injector.inject(v))
+
+	output = []
+	for v in versions_src:
+		output.append(fault_injector.inject(v))
+
+	save_package_src(output, output_dir)
 
 def process_fn(target, workload_generator, out_queue):
-	failure_count = 0
-	for command, true_result in workload_generator:
-		result = command(target)
-		if result != true_result:
-			failure_count += 1
-	out_queue.put(failure_count)
+	num_failures = 0
+	num_read = 0
+	for operation, true_result in workload_generator:
+		try:
+			actual_result = operation(target)
+		except:
+			actual_result = None
+		if true_result == None:
+			continue
+		num_read += 1
+		if ((actual_result == None) or (len(actual_result) != len(true_result))):
+			num_failures += 1
+	out_queue.put(num_failures/num_read)
 
 def test(target, workload_generator):
 	queue = Queue()
-	p = Process(target=process_fn, args=(target, workload_generator, queue,))
+	p = Process(target=process_fn, args=(target, workload_generator, queue))
 	p.start()
 	p.join()
 	p.kill()
@@ -39,15 +61,24 @@ def test(target, workload_generator):
 		return queue.get()
 	else:
 		# If cannot get result set every I/O pair to failure
-		return workload_generator.size
+		return 1.0
 
 def test_multiple(targets, workload_generator):
-	fails = []
-	for target_idx, target in enumerate(targets):
-		num_failures = test(target, workload_generator)
-		fails.append(num_failures)
+	results = []
+	for target_idx, target in enumerate(targets):		
+		queue = Queue()
+		p = Process(target=process_fn, args=(target, workload_generator, queue))
+		p.start()
+		p.join()
+		p.kill()
+		if not queue.empty(): # Avoids deadlock
+			r = queue.get()
+		else:
+			# If cannot get result set every I/O pair to failure
+			r = workload_generator.size
+		results.append(r)
 		workload_generator.restart()
-	return fails
+	return results
 
 def save_results(obj, path):
 	with open(path + ".json", "w+") as file:
@@ -57,13 +88,13 @@ def load_results(path):
 	with open(path, "r") as file:
 		return json.load(file)
 
-def resilience_test(num_experiments, workload_size, versions_dir, data_dir, results_dir):
+def resilience_test(num_experiments, workload_size, versions_dir, data_dir, results_dir, num_bypass):
 
 	fi = FaultInjector()
 
-	nvp_failures = []
-	rb_failures = []
-	baseline_failures = []
+	nvp_results = []
+	rb_results = []
+	baseline_results = []
 
 	for idx in range(num_experiments):
 
@@ -72,13 +103,13 @@ def resilience_test(num_experiments, workload_size, versions_dir, data_dir, resu
 
 		# Reset data directories
 		if os.path.exists(data_dir):
-			shutil.rmtree(data_dir)
+			shutil.rmtree(data_dir, ignore_errors=True)
 
 		# Create new broken versions
-		break_versions(versions_dir, 'versions_broken', fi)
+		break_versions(versions_dir, 'versions_broken', fi, num_bypass=num_bypass)
 		modules_broken = load_modules("versions_broken")
 
-		# Inject resilience targets with new versions
+		# Create target databases with broken components
 		nvp_dir = os.path.join(data_dir, 'nvp')
 		nvp = NVersionProgramming('versions_broken', nvp_dir)
 		rb_dir = os.path.join(data_dir, 'rb')
@@ -93,24 +124,32 @@ def resilience_test(num_experiments, workload_size, versions_dir, data_dir, resu
 				baseline_data_dir = os.path.join(data_dir, 'baseline', str(module_idx))
 				version = module.Database(baseline_data_dir)
 				baselines.append(Baseline(version))
-			except:
+			except Exception as e:
 				pass
+
+		targets
 		
 		wg = WorkloadGenerator(workload_size)
 
 		# Test targets
-		target_failures = test_multiple(targets, wg)
-		nvp_failures.append(target_failures[0])
-		rb_failures.append(target_failures[1])
+		target_results = test_multiple(targets, wg)	
+		nvp_results.append(target_results[0])
+		rb_results.append(target_results[1])
 
 		# Test baselines
-		baseline_failures += test_multiple(baselines, wg)
+		baseline_results += test_multiple(baselines, wg)
 
-	return nvp_failures, rb_failures, baseline_failures
+	return nvp_results, rb_results, baseline_results
+
+def count(results, value):
+	return len([r for r in results if r == value]) 
+
+def percentage(a, b):
+	return (a/b) * 100
 
 def main(args):
-	if len(args) != 6:
-		print("Usage: experiment_controller.py <num_experiments> <workload_size> <versions_dir> <data_dir> <results_dir>")
+	if len(args) != 7:
+		print("Usage: experiment_controller.py <num_experiments> <workload_size> <versions_dir> <data_dir> <results_dir> <num_bypass>")
 		return
 	try:
 		num_experiments = int(args[1])
@@ -118,24 +157,29 @@ def main(args):
 		versions_dir = args[3]
 		data_dir = args[4]
 		results_dir = args[5]
+		num_bypass = int(args[6])
 	except Exception as e:
 		print("Inputted formatted incorrectly:\n", e)
 		return
 
-	results = resilience_test(num_experiments, workload_size, versions_dir, data_dir, results_dir)
-	nvp_failures, rb_failures, baseline_failures = results
+	results = resilience_test(num_experiments, workload_size, versions_dir, data_dir, results_dir, num_bypass)
+	nvp_results, rb_results, baseline_results = results
 
-	# Log results
-	print("NVP failures: ", nvp_failures)
-	print("RB failures: ", rb_failures)
-	print("Baseline failures: ", baseline_failures)
+	nvp_failures = count(nvp_results, 1.0)
+	rb_failures = count(rb_results, 1.0)
+	baseline_failures = count(baseline_results, 1.0)
 
-	if not os.path.exists(results_dir):
-		os.makedirs(results_dir)
-	suffix = "_%d_%d" % (num_experiments, workload_size)
-	save_results(nvp_failures, os.path.join(results_dir, "nvp%s" % suffix))
-	save_results(rb_failures, os.path.join(results_dir, "rb%s" % suffix))
-	save_results(baseline_failures, os.path.join(results_dir, "baseline%s" % suffix))
+	# Log number of failures
+	print("NVP failures: %d of %d (%f %%)" % (nvp_failures, len(nvp_results), percentage(nvp_failures, len(nvp_results))) )
+	print("RB failures: %d of %d (%f %%)" % (rb_failures, len(rb_results), percentage(rb_failures, len(rb_results))))
+	print("Baseline failures: %d of %d (%f %%)" % (baseline_failures, len(baseline_results), percentage(baseline_failures, len(baseline_results))))
+
+	# if not os.path.exists(results_dir):
+	# 	os.makedirs(results_dir)
+	# suffix = "_%d_%d" % (num_experiments, workload_size)
+	# save_results(nvp_results, os.path.join(results_dir, "nvp%s" % suffix))
+	# save_results(rb_failures, os.path.join(results_dir, "rb%s" % suffix))
+	# save_results(baseline_failures, os.path.join(results_dir, "baseline%s" % suffix))
 
 if __name__ == '__main__':
 	main(sys.argv)

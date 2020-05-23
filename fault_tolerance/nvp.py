@@ -1,5 +1,5 @@
-from .version_loading import load_modules
 import os
+from .module_loading import load_modules
 
 def get_most_frequent(elements):
 	freqs = dict()
