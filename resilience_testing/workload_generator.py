@@ -5,6 +5,7 @@ import sys
 class WorkloadGenerator():
 
 	def __init__(self, workload_size, seed=None):
+		self.operations = [self.read, self.write_new, self.write_existing, self.clear]
 		self.size = workload_size
 		self.state = dict()
 		if seed is None:
@@ -31,7 +32,7 @@ class WorkloadGenerator():
 			output += self.random.choice(possible_chars)
 		return output
 
-	def get_existing_id(self):
+	def sample_existing_id(self):
 		return self.random.choice(list(self.state.keys()))
 
 	def gen_new_id(self, max_length=10):
@@ -43,15 +44,34 @@ class WorkloadGenerator():
 			output += self.random.choice(possible_chars)
 		return output
 
-	def gen_write(self, grain_id, grain_val):
-		def write(file_storage):
-			return file_storage.write(grain_id, grain_val)
-		return write
+	def read(self):
+		grain_id = self.sample_existing_id()
+		def read_op(database):
+			return database.read(grain_id)
+		return read_op, self.state[grain_id]
 
-	def gen_read(self, grain_id):
-		def read(file_storage):
-			return file_storage.read(grain_id)
-		return read
+	def write_existing(self):
+		grain_id = self.sample_existing_id()
+		new_val = self.gen_new_value(max_length=1000)
+		self.state[grain_id] = new_val
+		def write_op(database):
+			return database.write(grain_id, new_val)
+		return write_op, None
+
+	def write_new(self):
+		new_id = self.gen_new_id(max_length=100)
+		new_val = self.gen_new_value(max_length=1000)
+		self.state[new_id] = new_val
+		def write_op(database):
+			return database.write(new_id, new_val)
+		return write_op, None
+
+	def clear(self):
+		grain_id = self.sample_existing_id()
+		del self.state[grain_id]
+		def clear_op(database):
+			return database.clear(grain_id)
+		return clear_op, None
 
 	def __iter__(self):
 		return self
@@ -64,25 +84,7 @@ class WorkloadGenerator():
 		self.count += 1
 
 		if len(self.state.keys()) == 0:
-			rnd = 0
+			operation = self.write_new
 		else:
-			rnd = self.random.randint(0, 2)
-
-		# Write to new grain
-		if rnd == 0:
-			new_id = self.gen_new_id(max_length=100)
-			new_val = self.gen_new_value(max_length=1000)
-			self.state[new_id] = new_val
-			return self.gen_write(new_id, new_val), None
-
-		# Overwrite existing grain
-		if rnd == 1:
-			grain_id = self.get_existing_id()
-			new_val = self.gen_new_value(max_length=1000)
-			self.state[grain_id] = new_val
-			return self.gen_write(grain_id, new_val), None
-
-		# Read from existing grain
-		if rnd == 2:
-			grain_id = self.get_existing_id()
-			return self.gen_read(grain_id), self.state[grain_id]
+			operation = self.random.choice(self.operations)
+		return operation()

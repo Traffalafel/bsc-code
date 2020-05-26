@@ -3,77 +3,58 @@ import string
 import random
 import sys
 
-def find_commands(source: str):
-	commands = []
-	line_nums = []
-	lines = source.split("\n")
-	for idx, line in enumerate(lines):
-		if not re.match("([\t ]*def )|([\t ]*class )", line) and not line_empty(line):
-			commands.append(line)
-			line_nums.append(idx)
-	return commands, line_nums
 
-def line_empty(line: str):
-	return not bool(line.strip())
+def sample_random_line(source: str):
+	lines = source.split('\n')
+	idx = random.randint(0, len(lines)-1)
+	return idx, lines[idx]
 
-def random_line(source: str):
-	cmds, line_nums = find_commands(source)
-	idx = random.randint(0, len(cmds)-1)
-	return cmds[idx], line_nums[idx]
-
-def trim_indent(line: str):
-	stripped = line.lstrip()
-	len_indent = len(line) - len(stripped)
-	return stripped, len_indent
-
-def line_offset(source: str, line_num: int):
-	lines = source.split("\n")
-	offset = sum(len(line) for line in lines[:line_num-1])
-	offset += line_num - 1
-	_, len_indent = trim_indent(lines[line_num-1])
-	offset += len_indent
-	return offset
-
-def insert_char(source: str):
-	cmd, line_num = random_line(source)
-	offset = line_offset(source, line_num)
-	cmd = cmd.lstrip()
-	new_pos = offset + random.randint(0, len(cmd))
+def add_char(source: str):
+	pos = random.randint(0, len(source))
 	chars = list(string.ascii_letters)
 	chars += list(string.digits)
 	new_char = random.choice(chars)
-	return source[:new_pos] + new_char + source[new_pos:]
+	return source[:pos] + new_char + source[pos:]
 
-def swap_lines(source: str, line_num_1, line_num_2):
+def rm_char(source: str):
+	pos = random.randint(0, len(source)-1)
+	return source[:pos] + source[pos+1:]
+
+def swap(source: str, idx_1, idx_2):
 	lines = source.split("\n")
-	tmp = lines[line_num_1]
-	lines[line_num_1] = lines[line_num_2]
-	lines[line_num_2] = tmp
+	tmp = lines[idx_1]
+	lines[idx_1] = lines[idx_2]
+	lines[idx_2] = tmp
 	return "\n".join(lines)
 
-def swap_commands(source: str):
-	_, line_num_1 = random_line(source)
-	_, line_num_2 = random_line(source)
-	while line_num_2 == line_num_1:
-		_, line_num_2 = random_line(source)
-	return swap_lines(source, line_num_1, line_num_2)
+def swap_lines(source: str):
+	idx_1, _ = sample_random_line(source)
+	idx_2, _ = sample_random_line(source)
+	while idx_2 == idx_1:
+		idx_2, _ = sample_random_line(source)
+	return swap(source, idx_1, idx_2)
 
-def remove_command(source: str):
-	_, line_num = random_line(source)
+def dup_line(source: str):
+	idx, _ = sample_random_line(source)
 	lines = source.split("\n")
-	new_lines = lines[:line_num] + lines[line_num+1:]
-	return "\n".join(new_lines)
+	lines = lines[:idx] + [lines[idx]] + lines[idx+1:]
+	return "\n".join(lines)
 
-def remove_char(source: str):
-	char_idx = random.randint(0, len(source)-1)
-	return source[:char_idx] + source[char_idx+1:]
+def rm_line(source: str):
+	idx, _ = sample_random_line(source)
+	lines = source.split("\n")
+	lines = lines[:idx] + lines[idx+1:]
+	return "\n".join(lines)
 
 class FaultInjector():
 
 	def __init__(self):
-		self.mutations = [insert_char, swap_commands, remove_command, remove_char]
+		self.mutations = [add_char, rm_char, dup_line, swap_lines, rm_line]
 
-	def inject(self, source: str):
-		mutation = random.choice(self.mutations)
-		return mutation(source)
+	def inject(self, source:str, num_mutations=1):
+		src = source
+		for i in range(num_mutations):
+			mutation = random.choice(self.mutations)
+			src = mutation(src)
+		return src
 		

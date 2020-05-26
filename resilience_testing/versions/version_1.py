@@ -7,7 +7,7 @@ class Database():
 
     def read(self, state_id):
         path = os.path.join(self.data_dir, state_id)
-        file = open(path, 'r+', encoding='utf-8')
+        file = open(path, 'r', encoding='utf-8')
         content = file.read()
         file.close()
         return content
