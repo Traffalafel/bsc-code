@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import sys
 import os
+import numpy as np
 from experiment_controller import load_results
 
 MARGIN = 0.025
@@ -29,8 +30,15 @@ def create_barplot(x, heights, title):
 	return fig, ax
 
 def rate_scatter(baseline, target, title):
+	above = np.array([(baseline[i], t) for i,t in enumerate(target) if t > baseline[i]])
+	below = np.array([(baseline[i], t) for i,t in enumerate(target) if t < baseline[i]])
+	above_mean = np.mean(above, axis=0)
+	below_mean = np.mean(below, axis=0)
+	means_x = [x for x,y in [above_mean, below_mean]]
+	means_y = [y for x,y in [above_mean, below_mean]]
 	fig, ax = plt.subplots(figsize=(5,5))
 	ax.scatter(baseline, target, s=40, alpha=0.5)
+	ax.scatter(means_x, means_y, marker='+', c='r', s=100)
 	ax.set_xlabel("Baseline mean failure rate", fontsize=10)
 	ax.set_ylabel(title + " failure rate", fontsize=10)
 	ax.set_xlim(0.0-MARGIN, 1.0+MARGIN)
@@ -66,10 +74,24 @@ if __name__ == "__main__":
 	x, heights = count_freqs(baseline_all)
 	fig, _ = create_barplot(x, heights, "Distribution of baseline failure rate")
 	fig.savefig(os.path.join(plots_dir, experiment_params + '_baseline'))
-	
-	well_performing_nvp = len([r for i,r in enumerate(nvp_results) if r < baseline_means[i]])
-	well_performing_rb = len([r for i,r in enumerate(rb_results) if r < baseline_means[i]])
-	print("Well-performing NVP: %d%%" % ((well_performing_nvp/num_experiments)*100))
-	print("Well-performing RB: %d%%" % ((well_performing_rb/num_experiments)*100))
+
 	print("Number of experiments: %d" % num_experiments)
 	print("Average number of baselines: %f" % (sum(len(b) for b in baseline_results)/num_experiments))
+
+	above_nvp = len([r for i,r in enumerate(nvp_results) if r > baseline_means[i]])
+	below_nvp = len([r for i,r in enumerate(nvp_results) if r < baseline_means[i]])
+	zero_nvp = len([r for i,r in enumerate(nvp_results) if r == baseline_means[i] and r == 0.0])
+	one_nvp = len([r for i,r in enumerate(nvp_results) if r == baseline_means[i] and r == 1.0])
+	print("NVP above: %d%%" % ((above_nvp/num_experiments)*100))
+	print("NVP below: %d%%" % ((below_nvp/num_experiments)*100))
+	print("NVP on line (0.0): %d%%" % ((zero_nvp/num_experiments)*100))
+	print("NVP on line (1.0): %d%%" % ((one_nvp/num_experiments)*100))
+
+	above_rb = len([r for i,r in enumerate(rb_results) if r > baseline_means[i]])
+	below_rb = len([r for i,r in enumerate(rb_results) if r < baseline_means[i]])
+	zero_rb = len([r for i,r in enumerate(rb_results) if r == baseline_means[i] and r == 0.0])
+	one_rb = len([r for i,r in enumerate(rb_results) if r == baseline_means[i] and r == 1.0])
+	print("rb above: %d%%" % ((above_rb/num_experiments)*100))
+	print("rb below: %d%%" % ((below_rb/num_experiments)*100))
+	print("rb on line (0.0): %d%%" % ((zero_rb/num_experiments)*100))
+	print("rb on line (1.0): %d%%" % ((one_rb/num_experiments)*100))

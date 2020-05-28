@@ -18,17 +18,14 @@ class VersionsTrust():
 		self.trust = [self.trust[i] for i in idxs]
 
 class RecoveryBlock():
-	def __init__(self, versions_package, data_dir, silent=True):
+	def __init__(self, versions, data_dir, silent=True):
 		self.silent = silent
-		self.versions = []
-		modules = load_modules(versions_package, silent)
-		for module_idx, module in enumerate(modules):
-			try:
-				version = module.Database(data_dir)
-				self.versions.append(version)
-			except Exception as e:
-				if not self.silent:
-					print("RB: Failed to load version %d: %s" % (module_idx, e))
+		self.versions = versions
+		if not os.path.exists(data_dir):
+			os.makedirs(data_dir)
+		for version in self.versions:
+			# Reconfigure data directory for versions
+			version.data_dir = data_dir
 		self.read_versions = VersionsTrust(self.versions)
 		self.write_versions = VersionsTrust(self.versions)
 		self.clear_versions = VersionsTrust(self.versions)

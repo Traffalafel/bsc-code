@@ -25,7 +25,6 @@ class WorkloadGenerator():
 		possible_chars = list(string.ascii_letters)
 		possible_chars += list(string.digits)
 		possible_chars += list(string.punctuation)
-		possible_chars += list(string.whitespace)
 		output = ""
 		length = self.random.randint(1, max_length)
 		for _ in range(length):

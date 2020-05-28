@@ -23,7 +23,9 @@ class Database():
     def clear(self, state_id):
         import shutil
         tmp_path = os.path.join(self.data_dir, "temporary")
-        os.mkdir(tmp_path)
-        path = os.path.join(self.data_dir, state_id)
-        shutil.move(path, os.path.join(tmp_path, state_id))
+        if not os.path.exists(tmp_path):
+            os.makedirs(tmp_path)
+        path_before = os.path.join(self.data_dir, state_id)
+        path_after = os.path.join(tmp_path, state_id)
+        shutil.move(path_before, path_after)
         shutil.rmtree(tmp_path)

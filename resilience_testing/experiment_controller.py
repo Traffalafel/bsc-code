@@ -4,7 +4,9 @@ import random
 import py_compile
 from multiprocessing import Process, Queue
 import json
+import pkgutil
 import shutil
+import importlib
 
 from fault_tolerance.nvp import NVersionProgramming
 from fault_tolerance.rb import RecoveryBlock
@@ -16,6 +18,21 @@ from workload_generator import WorkloadGenerator
 from baseline import Baseline
 
 NUM_SYNTHESIZED_VERSIONS = 8
+
+# def break_operations(input_dir, output_dir, fault_injector, num_bypass=0, num_mutations=1):
+# 	if os.path.exists(output_dir):
+# 		shutil.rmtree(output_dir)
+# 	os.makedirs(output_dir)
+# 	open(os.path.join(output_dir, '__init__.py'), 'w+').close()
+# 	srcs = load_package_src(input_dir)
+# 	bypass_idxs = random.sample(range(len(srcs)), k=num_bypass)
+# 	for idx, src in enumerate(srcs):
+# 		if idx in bypass_idxs:
+# 			output_src = src
+# 		else:
+# 			output_src  = fault_injector.inject(src, num_mutations)
+# 		with open(os.path.join(output_dir, "%d.py" % idx), 'w+') as fd:
+# 			fd.write(output_src)
 
 def break_versions(input_dir, output_dir, fault_injector, num_bypass=0, num_mutations=1):
 	assert(num_bypass >= 0)
@@ -53,7 +70,7 @@ def run_tests(targets, workload_generator):
 	results = []
 	for target_idx, target in enumerate(targets):		
 		queue = Queue()
-		p = Process(target=process_fn, args=(target, workload_generator, queue))
+		p = Process(target=process_fn, args=(target, workload_generator, queue),)
 		p.start()
 		p.join()
 		p.kill()
@@ -61,7 +78,7 @@ def run_tests(targets, workload_generator):
 			r = queue.get()
 		else:
 			# If cannot get result set every I/O pair to failure
-			r = 1.0
+			r = None
 		results.append(r)
 		workload_generator.restart()
 	return results
@@ -80,50 +97,108 @@ def resilience_test(num_experiments, workload_size, versions_dir, data_dir, resu
 
 	results = []
 
-	for idx in range(num_experiments):
+	experiments_completed = 0
 
-		# Logging information about experiment
-		print("Experiment no. %d" % (idx+1))
+	while experiments_completed < num_experiments:
 
 		# Reset data directories
 		if os.path.exists(data_dir):
-			shutil.rmtree(data_dir, ignore_errors=True)
+			shutil.rmtree(data_dir, ignore_errors=False)
+		os.makedirs(data_dir)
 	
-		baselines = []
-		while len(baselines) < min(2+num_bypass, NUM_SYNTHESIZED_VERSIONS):
-			# Create new broken versions
+		# Break and load versions
+		versions = []
+		while len(versions) < min(2+num_bypass, NUM_SYNTHESIZED_VERSIONS):
 			break_versions(versions_dir, 'versions_broken', fi, num_bypass, num_mutations)
 			modules_broken = load_modules("versions_broken")
-			
-			# Create baselines
 			modules = load_modules('versions_broken')
 			for module_idx, module in enumerate(modules):
 				try:
-					baseline_data_dir = os.path.join(data_dir, 'baseline', str(module_idx))
-					version = module.Database(baseline_data_dir)
-					baselines.append(Baseline(version))
+					version = module.Database('.')
+					versions.append(version)
 				except Exception as e:
+					print(e)
 					pass
 
-		# Create target databases with broken components
+		# Create FT strategies with broken versions
 		nvp_dir = os.path.join(data_dir, 'nvp')
-		nvp = NVersionProgramming('versions_broken', nvp_dir)
+		nvp = NVersionProgramming(versions, nvp_dir, silent=False)
 		rb_dir = os.path.join(data_dir, 'rb')
-		rb = RecoveryBlock('versions_broken', rb_dir)
+		rb = RecoveryBlock(versions, rb_dir, silent=False)
 		targets = [nvp, rb]
+
+		# Create baselines with broken versions
+		baselines = []
+		for idx, version in enumerate(versions):
+			baseline_dir = os.path.join(data_dir, 'baseline', str(idx))
+			baseline = Baseline(version, baseline_dir)
+			baselines.append(baseline)
+			
+		# reads = []
+		# while len(reads) < 2:
+		# 	try:
+		# 		break_operations('operations\\read', 'operations_broken\\read', fi, num_bypass, num_mutations)
+		# 		for submodule in pkgutil.iter_modules([os.path	.join('operations_broken', 'read')]):
+		# 			module = importlib.import_module('.read.' + submodule.name, 'operations_broken')
+		# 			reads.append(module.read)
+		# 	except Exception as e:
+		# 		# print("Error loading read: %s" % e)
+		# 		reads = []
+		
+		# writes = []
+		# while len(writes) < 2:
+		# 	try:
+		# 		break_operations('operations\\write', 'operations_broken\\write', fi, num_bypass, num_mutations)
+		# 		for submodule in pkgutil.iter_modules([os.path	.join('operations_broken', 'write')]):
+		# 			module = importlib.import_module('.write.' + submodule.name, 'operations_broken')
+		# 			writes.append(module.write)
+		# 	except Exception as e:
+		# 		# print("Error loading write: %s" % e)
+		# 		writes = []
+
+		# clears = []
+		# while len(clears) < 2:
+		# 	try:
+		# 		break_operations('operations\\clear', 'operations_broken\\clear', fi, num_bypass, num_mutations)
+		# 		for submodule in pkgutil.iter_modules([os.path	.join('operations_broken', 'clear')]):
+		# 			module = importlib.import_module('.clear.' + submodule.name, 'operations_broken')
+		# 			clears.append(module.clear)
+		# 	except Exception as e:
+		# 		# print("Error loading clear: %s" % e)
+		# 		clears = []
+			
+		# databases = []
+		# for r in reads:
+		# 	for w in writes:
+		# 		for c in clears:
+		# 			databases.append(InjectionDatabase(r, w, c))
 
 		wg = WorkloadGenerator(workload_size)
 
 		# Test targets
-		target_results = run_tests(targets, wg)	
+		target_results = run_tests(targets, wg)
+		if None in target_results:
+			print("Experiment failed - trying again")
+			continue
 		results_nvp = target_results[0]
 		results_rb = target_results[1]
+
+		# # Create baselines
+		# baselines = []
+		# for database in databases:
+		# 	baselines.append(Baseline(database, data_dir, silent=True))
 		
 		# Test baselines
 		results_baseline = run_tests(baselines, wg)
+		if None in results_baseline:
+			print("Experiment failed - trying again")
+			continue
 
 		results.append((results_nvp, results_rb, results_baseline))
 
+		experiments_completed += 1
+
+		print("Experiment no. %d results:" % experiments_completed)
 		print("NVP results: ", results_nvp)
 		print("RB results: ", results_rb)
 		print("Baseline results: ", results_baseline)

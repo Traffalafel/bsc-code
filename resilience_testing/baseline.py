@@ -1,7 +1,10 @@
-
+import os
 class Baseline():
-	def __init__(self, version, silent=True):
+	def __init__(self, version, data_dir, silent=True):
 		self.version = version
+		if not os.path.exists(data_dir):
+			os.makedirs(data_dir)
+		self.version.data_dir = data_dir
 		self.silent = silent
 
 	def read(self, state_id):

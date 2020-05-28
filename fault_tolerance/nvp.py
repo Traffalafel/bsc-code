@@ -11,18 +11,15 @@ def get_most_frequent(elements):
 		return max(freqs, key=freqs.get)
 
 class NVersionProgramming():
-	def __init__(self, versions_package, data_dir, silent=True):
+	def __init__(self, versions, data_dir, silent=True):
 		self.silent = silent
-		self.versions = []
-		modules = load_modules(versions_package, silent)
-		for module_idx, module in enumerate(modules):
-			try:
-				version_data_dir = os.path.join(data_dir, str(module_idx))
-				version = module.Database(version_data_dir)
-				self.versions.append(version)
-			except Exception as e:
-				if not self.silent:
-					print("NVP: Failed to load version %d: %s" % (module_idx, e))
+		self.versions = versions
+		for idx, version in enumerate(self.versions):
+			# Reconfigure data directory for versions
+			version_dir = os.path.join(data_dir, str(idx))
+			if not os.path.exists(version_dir):
+				os.makedirs(version_dir)
+			version.data_dir = version_dir
 
 	def read(self, state_id):
 		results = []

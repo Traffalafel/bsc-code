@@ -1,5 +1,6 @@
 data
 results
+results_old
 __pycache__
 .vscode
 versions_broken
