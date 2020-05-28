@@ -19,21 +19,6 @@ from baseline import Baseline
 
 NUM_SYNTHESIZED_VERSIONS = 8
 
-# def break_operations(input_dir, output_dir, fault_injector, num_bypass=0, num_mutations=1):
-# 	if os.path.exists(output_dir):
-# 		shutil.rmtree(output_dir)
-# 	os.makedirs(output_dir)
-# 	open(os.path.join(output_dir, '__init__.py'), 'w+').close()
-# 	srcs = load_package_src(input_dir)
-# 	bypass_idxs = random.sample(range(len(srcs)), k=num_bypass)
-# 	for idx, src in enumerate(srcs):
-# 		if idx in bypass_idxs:
-# 			output_src = src
-# 		else:
-# 			output_src  = fault_injector.inject(src, num_mutations)
-# 		with open(os.path.join(output_dir, "%d.py" % idx), 'w+') as fd:
-# 			fd.write(output_src)
-
 def break_versions(input_dir, output_dir, fault_injector, num_bypass=0, num_mutations=1):
 	assert(num_bypass >= 0)
 	versions_src = load_package_src(input_dir)
@@ -91,7 +76,7 @@ def load_results(path):
 	with open(path, "r") as file:
 		return json.load(file)
 
-def resilience_test(num_experiments, workload_size, versions_dir, data_dir, results_dir, num_bypass, num_mutations):
+def resilience_test(versions_dir, data_dir, results_dir, num_experiments, workload_size, num_bypass, num_mutations):
 
 	fi = FaultInjector()
 
@@ -117,14 +102,13 @@ def resilience_test(num_experiments, workload_size, versions_dir, data_dir, resu
 					version = module.Database('.')
 					versions.append(version)
 				except Exception as e:
-					print(e)
 					pass
 
 		# Create FT strategies with broken versions
 		nvp_dir = os.path.join(data_dir, 'nvp')
-		nvp = NVersionProgramming(versions, nvp_dir, silent=False)
+		nvp = NVersionProgramming(versions, nvp_dir, silent=True)
 		rb_dir = os.path.join(data_dir, 'rb')
-		rb = RecoveryBlock(versions, rb_dir, silent=False)
+		rb = RecoveryBlock(versions, rb_dir, silent=True)
 		targets = [nvp, rb]
 
 		# Create baselines with broken versions
@@ -134,45 +118,6 @@ def resilience_test(num_experiments, workload_size, versions_dir, data_dir, resu
 			baseline = Baseline(version, baseline_dir)
 			baselines.append(baseline)
 			
-		# reads = []
-		# while len(reads) < 2:
-		# 	try:
-		# 		break_operations('operations\\read', 'operations_broken\\read', fi, num_bypass, num_mutations)
-		# 		for submodule in pkgutil.iter_modules([os.path	.join('operations_broken', 'read')]):
-		# 			module = importlib.import_module('.read.' + submodule.name, 'operations_broken')
-		# 			reads.append(module.read)
-		# 	except Exception as e:
-		# 		# print("Error loading read: %s" % e)
-		# 		reads = []
-		
-		# writes = []
-		# while len(writes) < 2:
-		# 	try:
-		# 		break_operations('operations\\write', 'operations_broken\\write', fi, num_bypass, num_mutations)
-		# 		for submodule in pkgutil.iter_modules([os.path	.join('operations_broken', 'write')]):
-		# 			module = importlib.import_module('.write.' + submodule.name, 'operations_broken')
-		# 			writes.append(module.write)
-		# 	except Exception as e:
-		# 		# print("Error loading write: %s" % e)
-		# 		writes = []
-
-		# clears = []
-		# while len(clears) < 2:
-		# 	try:
-		# 		break_operations('operations\\clear', 'operations_broken\\clear', fi, num_bypass, num_mutations)
-		# 		for submodule in pkgutil.iter_modules([os.path	.join('operations_broken', 'clear')]):
-		# 			module = importlib.import_module('.clear.' + submodule.name, 'operations_broken')
-		# 			clears.append(module.clear)
-		# 	except Exception as e:
-		# 		# print("Error loading clear: %s" % e)
-		# 		clears = []
-			
-		# databases = []
-		# for r in reads:
-		# 	for w in writes:
-		# 		for c in clears:
-		# 			databases.append(InjectionDatabase(r, w, c))
-
 		wg = WorkloadGenerator(workload_size)
 
 		# Test targets
@@ -183,11 +128,6 @@ def resilience_test(num_experiments, workload_size, versions_dir, data_dir, resu
 		results_nvp = target_results[0]
 		results_rb = target_results[1]
 
-		# # Create baselines
-		# baselines = []
-		# for database in databases:
-		# 	baselines.append(Baseline(database, data_dir, silent=True))
-		
 		# Test baselines
 		results_baseline = run_tests(baselines, wg)
 		if None in results_baseline:
@@ -206,30 +146,24 @@ def resilience_test(num_experiments, workload_size, versions_dir, data_dir, resu
 
 	return results
 
-def count(results, value):
-	return len([r for r in results if r == value]) 
-
-def percentage(a, b):
-	return (a/b) * 100
-
 def main(args):
 	argc = len(args)
 	if argc != 8:
-		print("Usage: experiment_controller.py <num_experiments> <workload_size> <versions_dir> <data_dir> <results_dir> <num_bypass> <num_mutations>")
+		print("Usage: experiment_controller.py <versions_dir> <data_dir> <results_dir> <num_experiments> <workload_size>  <num_bypass> <num_mutations>")
 		return
 	try:
-		num_experiments = int(args[1])
-		workload_size = int(args[2])
-		versions_dir = args[3]
-		data_dir = args[4]
-		results_dir = args[5]
+		versions_dir = args[1]
+		data_dir = args[2]
+		results_dir = args[3]
+		num_experiments = int(args[4])
+		workload_size = int(args[5])
 		num_bypass = int(args[6])
 		num_mutations = int(args[7])
 	except Exception as e:
 		print("Inputted formatted incorrectly:", e)
 		return
 
-	results = resilience_test(num_experiments, workload_size, versions_dir, data_dir, results_dir, num_bypass, num_mutations)
+	results = resilience_test(versions_dir, data_dir, results_dir, num_experiments, workload_size, num_bypass, num_mutations)
 
 	if not os.path.exists(results_dir):
 		os.makedirs(results_dir)
