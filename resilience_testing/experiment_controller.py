@@ -96,8 +96,7 @@ def resilience_test(versions_dir, data_dir, results_dir, num_experiments, worklo
 		while len(versions) < min(2+num_bypass, NUM_SYNTHESIZED_VERSIONS):
 			break_versions(versions_dir, 'versions_broken', fi, num_bypass, num_mutations)
 			modules_broken = load_modules("versions_broken")
-			modules = load_modules('versions_broken')
-			for module_idx, module in enumerate(modules):
+			for module_idx, module in enumerate(modules_broken):
 				try:
 					version = module.Database('.')
 					versions.append(version)

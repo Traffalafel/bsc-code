@@ -1,5 +1,6 @@
 import os
 from .module_loading import load_modules
+import random
 
 def get_most_frequent(elements):
 	freqs = dict()
@@ -8,7 +9,14 @@ def get_most_frequent(elements):
 	if len(freqs.keys()) == 0:
 		return None
 	else:
-		return max(freqs, key=freqs.get)
+		max_freq = max(freqs.values())
+		max_elements = [k for k in freqs.keys() if freqs[k] == max_freq]
+		if len(max_elements) == 1:
+			output = max_elements[0]
+		else:
+			# Tie
+			output = random.choice(max_elements)
+		return output
 
 class NVersionProgramming():
 	def __init__(self, versions, data_dir, silent=True):

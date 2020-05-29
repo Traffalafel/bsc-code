@@ -14,11 +14,8 @@ def load_package_src(name):
 
 # Saves the source of a package
 def save_package_src(package_src, name, silent=True):
-	if os.path.exists(name):
-		if not silent:
-			print('Warning: Deleting pre-existing directory %s to make room for new package' % name)
-		shutil.rmtree(name)
-	os.makedirs(name)
+	if not os.path.exists(name):
+		os.makedirs(name)
 	open('%s/__init__.py' % name, 'w+').close() # Create __init__.py
 	for idx, version_src in enumerate(package_src):
 		with open('%s/version_%d.py' % (name, idx+1), 'w+', encoding='utf-8') as fd:
