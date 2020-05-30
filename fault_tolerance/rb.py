@@ -21,6 +21,8 @@ class RecoveryBlock():
 	def __init__(self, versions, data_dir, silent=True):
 		self.silent = silent
 		self.versions = versions
+		self.num_versions = len(versions)
+		self.data_dir = data_dir
 		if not os.path.exists(data_dir):
 			os.makedirs(data_dir)
 		for version in self.versions:

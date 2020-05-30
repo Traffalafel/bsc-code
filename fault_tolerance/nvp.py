@@ -22,6 +22,8 @@ class NVersionProgramming():
 	def __init__(self, versions, data_dir, silent=True):
 		self.silent = silent
 		self.versions = versions
+		self.num_versions = len(versions)
+		self.data_dir = data_dir
 		for idx, version in enumerate(self.versions):
 			# Reconfigure data directory for versions
 			version_dir = os.path.join(data_dir, str(idx))

@@ -8,11 +8,15 @@ class WorkloadGenerator():
 		self.operations = [self.read, self.write_new, self.write_existing, self.clear]
 		self.size = workload_size
 		self.state = dict()
+		self.cleared_grains = []
 		if seed is None:
 			self.gen_new_seed()
 		else:
 			self.seed = seed
 		self.restart()
+
+	def get_grain_ids(self):
+		return self.state.keys()
 
 	def gen_new_seed(self):
 		self.seed = random.randint(-sys.maxsize-1, sys.maxsize)
@@ -47,7 +51,7 @@ class WorkloadGenerator():
 		grain_id = self.sample_existing_id()
 		def read_op(database):
 			return database.read(grain_id)
-		return read_op, self.state[grain_id]
+		return 'read', read_op, grain_id, self.state[grain_id]
 
 	def write_existing(self):
 		grain_id = self.sample_existing_id()
@@ -55,7 +59,7 @@ class WorkloadGenerator():
 		self.state[grain_id] = new_val
 		def write_op(database):
 			return database.write(grain_id, new_val)
-		return write_op, None
+		return 'write', write_op, grain_id, None
 
 	def write_new(self):
 		new_id = self.gen_new_id(max_length=100)
@@ -63,14 +67,15 @@ class WorkloadGenerator():
 		self.state[new_id] = new_val
 		def write_op(database):
 			return database.write(new_id, new_val)
-		return write_op, None
+		return 'write', write_op, new_id, None
 
 	def clear(self):
 		grain_id = self.sample_existing_id()
 		del self.state[grain_id]
+		self.cleared_grains.append(grain_id)
 		def clear_op(database):
 			return database.clear(grain_id)
-		return clear_op, None
+		return 'clear', clear_op, grain_id, None
 
 	def __iter__(self):
 		return self

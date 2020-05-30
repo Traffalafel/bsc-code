@@ -37,19 +37,37 @@ def break_versions(input_dir, output_dir, fault_injector, num_bypass=0, num_muta
 	save_package_src(output, output_dir)
 
 def process_fn(target, workload_generator, out_queue):
-	num_failures = 0
-	num_read = 0
-	for operation, true_result in workload_generator:
-		try:
-			actual_result = operation(target)
-		except:
-			actual_result = None
-		if true_result == None:
-			continue # skip write and clear
-		num_read += 1
-		if (actual_result == None) or (len(actual_result) != len(true_result)):
-			num_failures += 1
-	out_queue.put(num_failures/num_read)
+	n_checks = 0
+	n_failures = 0
+	for operation_name, operation, grain_id, true_result in workload_generator:
+
+		if operation_name == 'read':
+			try:
+				actual_result = operation(target)
+			except:
+				actual_result = None
+			n_checks += 1
+			if (actual_result == None) or (len(actual_result) != len(true_result)):
+				n_failures += 1
+
+		if operation_name == 'clear':
+			n_before = sum(len(f) for _,_,files in os.walk(target.data_dir) for f in files if f == grain_id)
+			try:
+				operation(target)
+			except:
+				pass
+			n_after = min(n_before, sum(len(f) for _,_,files in os.walk(target.data_dir) for f in files if f == grain_id))
+			n_checks += n_before
+			n_failures += n_after
+
+		if operation_name == 'write':
+			try:
+				operation(target)
+			except:
+				pass
+			continue
+	
+	out_queue.put(n_failures/n_checks)
 
 def run_tests(targets, workload_generator):
 	results = []
@@ -76,6 +94,17 @@ def load_results(path):
 	with open(path, "r") as file:
 		return json.load(file)
 
+def load_versions(module_name):
+	modules_broken = load_modules("versions_broken")
+	versions = []
+	for module_idx, module in enumerate(modules_broken):
+		try:
+			version = module.Database('.')
+			versions.append(version)
+		except Exception as e:
+			pass
+	return versions
+
 def resilience_test(versions_dir, data_dir, results_dir, num_experiments, workload_size, num_bypass, num_mutations):
 
 	fi = FaultInjector()
@@ -88,34 +117,33 @@ def resilience_test(versions_dir, data_dir, results_dir, num_experiments, worklo
 
 		# Reset data directories
 		if os.path.exists(data_dir):
-			shutil.rmtree(data_dir, ignore_errors=False)
+			shutil.rmtree(data_dir)
 		os.makedirs(data_dir)
 	
 		# Break and load versions
-		versions = []
-		while len(versions) < min(2+num_bypass, NUM_SYNTHESIZED_VERSIONS):
+		versions_baseline = []
+		while len(versions_baseline) < min(2+num_bypass, NUM_SYNTHESIZED_VERSIONS):
 			break_versions(versions_dir, 'versions_broken', fi, num_bypass, num_mutations)
-			modules_broken = load_modules("versions_broken")
-			for module_idx, module in enumerate(modules_broken):
-				try:
-					version = module.Database('.')
-					versions.append(version)
-				except Exception as e:
-					pass
-
-		# Create FT strategies with broken versions
-		nvp_dir = os.path.join(data_dir, 'nvp')
-		nvp = NVersionProgramming(versions, nvp_dir, silent=True)
-		rb_dir = os.path.join(data_dir, 'rb')
-		rb = RecoveryBlock(versions, rb_dir, silent=True)
-		targets = [nvp, rb]
-
+			versions_baseline = load_versions('versions_broken')
+		
 		# Create baselines with broken versions
 		baselines = []
-		for idx, version in enumerate(versions):
+		for idx, version in enumerate(versions_baseline):
 			baseline_dir = os.path.join(data_dir, 'baseline', str(idx))
 			baseline = Baseline(version, baseline_dir)
 			baselines.append(baseline)
+
+		# Create NVP with broken versions
+		versions_nvp = load_versions('versions_broken')
+		nvp_dir = os.path.join(data_dir, 'nvp')
+		nvp = NVersionProgramming(versions_nvp, nvp_dir, silent=True)
+
+		# Create RB with broken versions
+		versions_rb = load_versions('versions_broken')
+		rb_dir = os.path.join(data_dir, 'rb')
+		rb = RecoveryBlock(versions_rb, rb_dir, silent=True)
+
+		targets = [nvp, rb]
 			
 		wg = WorkloadGenerator(workload_size)
 

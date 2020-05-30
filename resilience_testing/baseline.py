@@ -2,6 +2,8 @@ import os
 class Baseline():
 	def __init__(self, version, data_dir, silent=True):
 		self.version = version
+		self.num_versions = 1
+		self.data_dir = data_dir
 		if not os.path.exists(data_dir):
 			os.makedirs(data_dir)
 		self.version.data_dir = data_dir

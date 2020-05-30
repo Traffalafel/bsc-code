@@ -20,9 +20,5 @@ class Database():
         return chars_written
 
     def clear(self, state_id):
-        import shutil
-        tmp_path = os.path.join(self.data_dir, "temporary")
-        os.mkdir(tmp_path)
         path = os.path.join(self.data_dir, state_id)
-        shutil.move(path, os.path.join(tmp_path, state_id))
-        shutil.rmtree(tmp_path)
+        os.remove(path)
