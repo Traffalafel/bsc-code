@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import sys
 import os
+import math
 import numpy as np
 from experiment_controller import load_results
 
@@ -16,13 +17,13 @@ def count_freqs(results):
 	return [xs[i] for i in indices], [heights[i] for i in indices]
 
 def create_barplot(x, heights, title):
-	fig, ax = plt.subplots(figsize=(8,8))
+	fig, ax = plt.subplots(figsize=(5,5))
 	ax.bar(x, heights, width=0.02)
 	ax.set_xlim(0.0-MARGIN, 1.0+MARGIN)
-	fig.suptitle(title, fontsize=25)
-	ax.set_xlabel("Baseline failure rate ", fontsize=18)
-	ax.set_ylabel("Frequency", fontsize=18)
-	ax.tick_params(labelsize=18)
+	fig.suptitle(title, fontsize=14)
+	ax.set_xlabel("Baseline failure rate ", fontsize=10)
+	ax.set_ylabel("Frequency", fontsize=10)
+	ax.tick_params(labelsize=10)
 	return fig, ax
 
 def rate_scatter(baseline, target, title):
@@ -33,8 +34,8 @@ def rate_scatter(baseline, target, title):
 	ax.set_xlim(0.0-MARGIN, 1.0+MARGIN)
 	ax.set_ylim(0.0-MARGIN, 1.0+MARGIN)
 	ax.plot([0.0-MARGIN, 1.0+MARGIN], [0.0-MARGIN, 1.0+MARGIN], linestyle='--', color='grey', linewidth=1)
-	fig.suptitle(title, fontsize=18)
-	ax.tick_params(labelsize=8)
+	fig.suptitle(title, fontsize=14)
+	ax.tick_params(labelsize=10)
 	return fig, ax
 
 if __name__ == "__main__":
@@ -56,33 +57,33 @@ if __name__ == "__main__":
 	baseline_means = [sum(r)/len(r) for r in baseline_results]
 	baseline_all = [b for br in baseline_results for b in br]
 
-	fig, _ = rate_scatter(baseline_means, nvp_results, "NVP, n_faults = %d" % n_faults)
+	fig, _ = rate_scatter(baseline_means, nvp_results, "NVP, n_bypass=%d, n_faults=%d" % (n_bypass, n_faults))
 	fig.savefig(os.path.join(plots_dir, params + '_nvp'))
 
-	fig, _ = rate_scatter(baseline_means, rb_results, "RB, n_faults = %d" % n_faults)
+	fig, _ = rate_scatter(baseline_means, rb_results, "RB, n_bypass=%d, n_faults=%d" % (n_bypass, n_faults))
 	fig.savefig(os.path.join(plots_dir, params + '_rb'))
 
 	x, heights = count_freqs(baseline_all)
-	fig, _ = create_barplot(x, heights, "n_faults = %d" % n_faults)
+	fig, _ = create_barplot(x, heights, "n_bypass=%d, n_faults=%d" % (n_bypass, n_faults))
 	fig.savefig(os.path.join(plots_dir, params + '_baseline'))
 
 	print("Number of experiments: %d" % n_experiments)
 	print("Average number of baselines: %f" % (sum(len(b) for b in baseline_results)/n_experiments))
 
-	above_nvp = len([r for i,r in enumerate(nvp_results) if r > baseline_means[i]])
-	below_nvp = len([r for i,r in enumerate(nvp_results) if r < baseline_means[i]])
-	zero_nvp = len([r for i,r in enumerate(nvp_results) if r == baseline_means[i] and r == 0.0])
-	one_nvp = len([r for i,r in enumerate(nvp_results) if r == baseline_means[i] and r == 1.0])
-	print("NVP above: %d%%" % ((above_nvp/n_experiments)*100))
-	print("NVP below: %d%%" % ((below_nvp/n_experiments)*100))
-	print("NVP on line (0.0): %d%%" % ((zero_nvp/n_experiments)*100))
-	print("NVP on line (1.0): %d%%" % ((one_nvp/n_experiments)*100))
+	margin = 0.025
 
-	above_rb = len([r for i,r in enumerate(rb_results) if r > baseline_means[i]])
-	below_rb = len([r for i,r in enumerate(rb_results) if r < baseline_means[i]])
-	zero_rb = len([r for i,r in enumerate(rb_results) if r == baseline_means[i] and r == 0.0])
-	one_rb = len([r for i,r in enumerate(rb_results) if r == baseline_means[i] and r == 1.0])
-	print("rb above: %d%%" % ((above_rb/n_experiments)*100))
-	print("rb below: %d%%" % ((below_rb/n_experiments)*100))
-	print("rb on line (0.0): %d%%" % ((zero_rb/n_experiments)*100))
-	print("rb on line (1.0): %d%%" % ((one_rb/n_experiments)*100))
+	# Compute statistics for NVP
+	above_nvp = len([r for i,r in enumerate(nvp_results) if r > baseline_means[i]+margin])
+	below_nvp = len([r for i,r in enumerate(nvp_results) if r < baseline_means[i]-margin])
+	on_nvp = len([r for i,r in enumerate(nvp_results) if abs(r-baseline_means[i]) <= margin])
+	print("NVP above: %f%%" % ((above_nvp/n_experiments)*100))
+	print("NVP below: %f%%" % ((below_nvp/n_experiments)*100))
+	print("NVP on line: %f%%" % ((on_nvp/n_experiments)*100))
+
+	# Compute statistics for RB
+	above_rb = len([r for i,r in enumerate(rb_results) if r > baseline_means[i] + margin])
+	below_rb = len([r for i,r in enumerate(rb_results) if r < baseline_means[i] - margin])
+	on_rb = len([r for i,r in enumerate(rb_results) if abs(r-baseline_means[i]) <= margin])
+	print("RB above: %f%%" % ((above_rb/n_experiments)*100))
+	print("RB below: %f%%" % ((below_rb/n_experiments)*100))
+	print("RB on line: %f%%" % ((on_rb/n_experiments)*100))
